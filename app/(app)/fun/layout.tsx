@@ -8,11 +8,13 @@ export default function FunLayout({ children }: LayoutProps<"/fun">) {
         <TabLinks
           items={[
             { href: "/fun", label: "Tout", exact: true },
+            { href: "/fun/questions", label: "Questions" },
+            { href: "/fun/party", label: "Défis de soirée" },
             { href: "/fun/tonight", label: "Ce soir" },
             { href: "/fun/wheel", label: "Roue" },
             { href: "/fun/who", label: "Qui de nous deux ?" },
             { href: "/fun/quiz", label: "Quiz" },
-            { href: "/fun/challenges", label: "Défis" },
+            { href: "/fun/challenges", label: "Nos défis" },
             { href: "/fun/badges", label: "Badges" },
           ]}
         />
