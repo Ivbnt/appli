@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import {
   activityIdSchema,
   activitySchema,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/validation/fun";
 import { workspaceAction } from "../safe-action";
 import { evaluateBadges } from "../services/badges";
+import { unlockAlma } from "../services/easter-egg";
 import * as fun from "../services/fun";
 
 const refresh = () => revalidatePath("/fun", "layout");
@@ -93,4 +95,14 @@ export const setChallengeStatusAction = workspaceAction(challengeStatusSchema, a
 export const deleteChallengeAction = workspaceAction(challengeIdSchema, async ({ id }, ctx) => {
   await fun.deleteChallenge(ctx.workspace.id, id);
   refresh();
+});
+
+/** Code secret A·L·M·A : la première fois, ajoute la date à l'agenda. */
+export const unlockAlmaAction = workspaceAction(z.object({}), async (_input, ctx) => {
+  const result = await unlockAlma(ctx.workspace.id, ctx.user.id);
+  if (result.added) {
+    revalidatePath("/calendar");
+    revalidatePath("/");
+  }
+  return result;
 });

@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
+import { ALMA_OPEN_EVENT } from "@/lib/easter-egg";
 import { MAIN_NAV, SETTINGS_NAV } from "@/lib/navigation";
 import type { SearchResult, SearchResultKind } from "@/lib/search";
 
@@ -119,7 +120,15 @@ export function CommandPalette({ open, onOpenChange: setOpen }: { open: boolean;
               {loading ? <Spinner className="size-4 text-subtle" /> : <Search className="size-4 text-subtle" aria-hidden="true" />}
               <Command.Input
                 value={query}
-                onValueChange={setQuery}
+                onValueChange={(value) => {
+                  // Code secret : taper « alma » ouvre le compteur (utile sur téléphone, sans clavier physique).
+                  if (value.trim().toLowerCase() === "alma") {
+                    onOpenChange(false);
+                    window.dispatchEvent(new Event(ALMA_OPEN_EVENT));
+                    return;
+                  }
+                  setQuery(value);
+                }}
                 placeholder="Rechercher un lieu, un film, une tâche…"
                 className="h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-subtle"
               />

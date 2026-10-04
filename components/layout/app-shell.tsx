@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AlmaEasterEgg } from "./alma-easter-egg";
 import { CommandPalette } from "./command-palette";
 import { MobileHeader, MobileTabBar } from "./mobile-nav";
 import { ShellProvider, type ShellData } from "./shell-context";
@@ -38,6 +39,7 @@ export function AppShell({ data, children }: { data: ShellData; children: React.
       </div>
       <MobileTabBar />
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <AlmaEasterEgg />
     </ShellProvider>
   );
 }
