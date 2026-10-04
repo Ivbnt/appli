@@ -1,0 +1,34 @@
+# Dépendances
+/node_modules
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Builds
+/build
+/dist
+
+# Fichiers privés stockés localement (photos, documents)
+/storage
+
+# Tests
+/coverage
+/test-results
+/playwright-report
+/blob-report
+
+# Environnement — ne jamais committer de secrets
+.env
+.env.*
+!.env.example
+
+# Divers
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+.agents
+.claude/settings.local.json
