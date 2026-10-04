@@ -1,1 +1,403 @@
-# appli
+# Nous
+
+Application web privée pour un couple : un espace partagé à deux pour les lieux, les tâches, le calendrier, les souvenirs, les films, la playlist, les voyages et quelques jeux.
+
+- **Stack** : Next.js 16 (App Router, Server Actions), React 19, TypeScript strict, Tailwind CSS 4, Motion, Zod, PostgreSQL (SQL brut, sans ORM).
+- **Déploiement** : Docker Compose (base, migrations, application, worker de rappels).
+
+---
+
+## Sommaire
+
+1. [Démarrage rapide avec Docker](#démarrage-rapide-avec-docker)
+2. [Développement local](#développement-local)
+3. [Variables d'environnement](#variables-denvironnement)
+4. [Base de données, migrations et seed](#base-de-données-migrations-et-seed)
+5. [Intégrations : e-mail, films, Spotify, cartes, stockage](#intégrations)
+6. [Production](#production)
+7. [Architecture](#architecture)
+8. [Sécurité](#sécurité)
+9. [Tests](#tests)
+10. [Fonctionnalités](#fonctionnalités)
+
+---
+
+## Démarrage rapide avec Docker
+
+Prérequis : Docker et Docker Compose v2.
+
+```bash
+docker compose up --build
+```
+
+L'application démarre sur **http://localhost:3000** sans aucune configuration :
+
+- PostgreSQL 17 démarre ;
+- le service `migrate` applique les migrations, puis s'arrête ;
+- `app` (Next.js) et `worker` (rappels par e-mail) démarrent ensuite ;
+- un secret `AUTH_SECRET` est généré au premier lancement et conservé dans le volume `data`.
+
+Pour personnaliser la configuration, copiez `.env.example` en `.env` et modifiez les valeurs. Le fichier est lu automatiquement s'il existe.
+
+### Données de démonstration
+
+```bash
+docker compose exec app node dist/seed.mjs
+```
+
+Deux comptes sont créés dans un espace commun : `lea@exemple.fr` et `hugo@exemple.fr`, mot de passe `motdepasse-demo`. L'espace contient des lieux, des tâches, des événements, des photos, des films, un voyage, des quiz et des défis. Le seed refuse de s'exécuter si ces comptes existent déjà ; ajoutez `--force` pour les recréer.
+
+### Premier compte sans service d'e-mail
+
+Par défaut (`EMAIL_PROVIDER=console`), les e-mails ne sont pas envoyés : ils sont écrits dans les journaux. Le lien de vérification apparaît donc dans :
+
+```bash
+docker compose logs app
+```
+
+Pour désactiver la vérification (déconseillé en production), utilisez `REQUIRE_EMAIL_VERIFICATION=false`.
+
+### Commandes utiles
+
+| Commande | Effet |
+| --- | --- |
+| `docker compose up -d --build` | Démarre en arrière-plan |
+| `docker compose logs -f app worker` | Suit les journaux |
+| `docker compose run --rm migrate` | Réapplique les migrations |
+| `docker compose down` | Arrête (les données sont conservées) |
+| `docker compose down -v` | Arrête et **supprime toutes les données** |
+
+Volumes :
+
+- `pgdata` : la base de données ;
+- `storage` : les photos et les documents (avec le stockage local) ;
+- `data` : le secret généré.
+
+---
+
+## Développement local
+
+Prérequis : Node.js 22 ou plus et PostgreSQL 15 ou plus. La version 15 est nécessaire pour `ON DELETE SET NULL (colonne)`.
+
+```bash
+# 1. Une base PostgreSQL, par exemple :
+docker run -d --name appli-pg -p 5432:5432 \
+  -e POSTGRES_USER=appli -e POSTGRES_PASSWORD=changez-moi -e POSTGRES_DB=appli postgres:17-alpine
+
+# 2. Configuration
+cp .env.example .env
+#    → renseignez AUTH_SECRET : openssl rand -base64 48
+
+# 3. Installation, migrations, données de démo
+npm install
+npm run db:migrate
+npm run db:seed
+
+# 4. Lancement
+npm run dev        # http://localhost:3000
+npm run worker     # dans un autre terminal, pour les rappels par e-mail
+```
+
+### Scripts
+
+| Script | Rôle |
+| --- | --- |
+| `npm run dev` | Serveur de développement (Turbopack) |
+| `npm run build` / `npm start` | Build de production (sortie `standalone`) et démarrage |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run db:migrate` | Applique les migrations SQL en attente |
+| `npm run db:seed` | Données de démonstration (`-- --force` pour recommencer) |
+| `npm run worker` | Worker des rappels et du nettoyage des fichiers |
+| `npm test` | Tests unitaires et d'intégration (Vitest) |
+| `npm run test:e2e` | Tests de bout en bout (Playwright) |
+
+---
+
+## Variables d'environnement
+
+Toutes les variables sont validées au démarrage avec Zod. Une valeur invalide arrête le processus avec un message explicite. Le fichier `.env.example` liste chaque variable avec un commentaire.
+
+| Variable | Défaut | Description |
+| --- | --- | --- |
+| `APP_URL` | `http://localhost:3000` | URL publique. Sert aux liens des e-mails et au retour OAuth. En `https://`, les cookies passent en `__Host-` et `Secure`. |
+| `APP_TIMEZONE` | `Europe/Paris` | Fuseau horaire de l'affichage, des rappels et des dates EXIF. |
+| `DATABASE_URL` | — | Chaîne de connexion PostgreSQL. Sous Docker, elle est construite à partir de `POSTGRES_*`. |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `appli` | Identifiants du conteneur PostgreSQL. |
+| `AUTH_SECRET` | — | Au moins 32 caractères. Sert à signer les URLs de fichiers et à chiffrer les jetons Spotify. Sous Docker, il est généré automatiquement s'il est vide. |
+| `REGISTRATION_MODE` | `open` | `invite-only` : inscription seulement par lien d'invitation. |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Rend la vérification de l'adresse e-mail obligatoire. |
+| `MAX_UPLOAD_MB` | `25` | Taille maximale d'une photo ou d'un document. |
+| `EMAIL_PROVIDER` | `console` | `console`, `smtp` ou `resend`. |
+| `EMAIL_FROM` | — | Expéditeur, par exemple `Nous <bonjour@exemple.fr>`. |
+| `EMAIL_API_KEY` | — | Clé Resend. |
+| `SMTP_URL` | — | `smtps://utilisateur:motdepasse@hote:465`. |
+| `MOVIE_API_KEY` | — | Clé API v3 ou jeton de lecture v4 TMDB. |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | — | Application Spotify. |
+| `STORAGE_DRIVER` | `local` | `local` ou `s3`. |
+| `STORAGE_LOCAL_DIR` | `./storage` | Dossier des fichiers locaux, hors de `public/`. |
+| `STORAGE_*` | — | Endpoint, région, bucket, clés et style de chemin pour un stockage S3. |
+| `MAP_API_KEY` | — | Clé MapTiler (facultative). |
+| `GEOCODING_USER_AGENT` | — | Contact envoyé à Nominatim. |
+
+Les intégrations sont **facultatives**. Sans clé, l'interface l'indique et propose une alternative (saisie manuelle d'un film, collage d'un lien Spotify, journalisation des e-mails), au lieu d'afficher une erreur.
+
+---
+
+## Base de données, migrations et seed
+
+L'accès aux données passe par **SQL brut** sur `pg`, sans ORM. Le module `server/db/sql.ts` fournit un template tagué :
+
+```ts
+const tasks = await db.many<Task>(sql`
+  SELECT * FROM tasks
+  WHERE workspace_id = ${ctx.workspace.id} AND ${sql.and(filters)}
+  ORDER BY position
+`);
+```
+
+- Chaque valeur interpolée devient un paramètre `$n`. Aucune concaténation de chaînes n'est possible par accident.
+- Les fragments peuvent s'imbriquer (`sql.join`, `sql.and`). Seul `sql.raw` insère du texte brut, et il est réservé aux identifiants constants.
+- Les colonnes sont converties en camelCase. Les colonnes `date` restent des chaînes `AAAA-MM-JJ` (pas de décalage de fuseau), et les `bigint` deviennent des nombres.
+- `db.tx(async (tx) => …)` exécute une transaction.
+
+### Migrations
+
+Les migrations sont des fichiers SQL numérotés dans `db/migrations/`. `npm run db:migrate` (ou le service `migrate` sous Docker) :
+
+- les applique dans l'ordre, chacune dans une transaction ;
+- enregistre leur empreinte SHA-256 ; un fichier déjà appliqué puis modifié est refusé ;
+- prend un verrou consultatif PostgreSQL, ce qui permet de lancer plusieurs instances sans risque.
+
+Pour faire évoluer le schéma, ajoutez un fichier `0002_description.sql`. Ne modifiez jamais une migration déjà appliquée.
+
+### Schéma (résumé)
+
+| Domaine | Tables |
+| --- | --- |
+| Comptes | `users`, `sessions`, `auth_tokens`, `rate_limits` |
+| Espace | `workspaces`, `workspace_members` (un utilisateur appartient à un seul espace), `invitations` |
+| Organisation | `locations`, `task_categories`, `tasks`, `calendar_events`, `reminders` |
+| Souvenirs | `albums`, `photos`, `milestones` |
+| Films et musique | `movies`, `movie_reviews`, `playlists`, `spotify_connections` |
+| Voyages | `trips`, `reservations` |
+| Fun | `activities`, `challenges`, `quizzes`, `quiz_questions`, `quiz_answers`, `badges`, `user_badges` |
+| Maintenance | `pending_file_deletions` |
+
+Chaque ressource porte un `workspace_id`. Les références entre ressources utilisent des **clés étrangères composites** `(workspace_id, id)`, si bien qu'une tâche ne peut pas, même par erreur, pointer vers un lieu d'un autre espace.
+
+---
+
+## Intégrations
+
+### E-mail
+
+- `console` : les e-mails sont écrits dans les journaux (développement).
+- `smtp` : renseignez `SMTP_URL` et `EMAIL_FROM`.
+- `resend` : renseignez `EMAIL_API_KEY` et `EMAIL_FROM` (domaine vérifié chez Resend).
+
+Les e-mails envoyés couvrent la vérification d'adresse, la réinitialisation du mot de passe, les invitations, l'arrivée du partenaire et les rappels. Chaque membre peut les désactiver dans **Paramètres → Notifications**.
+
+### Rappels (worker)
+
+Le worker (`worker/index.ts`, service `worker` sous Docker) :
+
+- interroge la table `reminders` toutes les minutes ;
+- traite les rappels avec `FOR UPDATE SKIP LOCKED`, ce qui permet de lancer plusieurs workers ;
+- réessaie avec un délai croissant en cas d'échec ;
+- replanifie les rappels annuels (anniversaires) ;
+- supprime les fichiers en attente de suppression.
+
+Des rappels sont créés automatiquement pour les événements (« demain », « dans 2 jours »…), les réservations et les départs en voyage.
+
+### Films (TMDB)
+
+1. Créez un compte sur https://www.themoviedb.org.
+2. Ouvrez **Paramètres → API** et copiez la clé API v3 ou le jeton de lecture v4.
+3. Renseignez `MOVIE_API_KEY`.
+
+Sans clé, les films peuvent être ajoutés manuellement.
+
+### Spotify
+
+1. Créez une application sur https://developer.spotify.com/dashboard.
+2. Ajoutez l'URI de redirection `<APP_URL>/api/spotify/callback`, par exemple `http://127.0.0.1:3000/api/spotify/callback` en local, car Spotify n'accepte plus `localhost`.
+3. Renseignez `SPOTIFY_CLIENT_ID` et `SPOTIFY_CLIENT_SECRET`.
+
+Une fois l'intégration configurée, chaque membre peut connecter son compte (jetons chiffrés en AES-GCM en base) et choisir une playlist. Sans configuration, il suffit de coller le lien d'une playlist publique pour l'intégrer au lecteur.
+
+### Cartes
+
+Sans clé, l'application utilise les fonds CARTO (données OpenStreetMap) et la recherche d'adresses Nominatim. Avec `MAP_API_KEY` (MapTiler), elle utilise les fonds et le géocodage MapTiler. Les requêtes de géocodage passent par le serveur (`/api/geocode`), qui les limite en débit.
+
+### Stockage des fichiers
+
+- `local` : les fichiers sont écrits dans `STORAGE_LOCAL_DIR`, sur le volume `storage` sous Docker.
+- `s3` : tout service compatible S3 (AWS, Cloudflare R2, Scaleway, MinIO). Renseignez `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY` et `STORAGE_SECRET_KEY`.
+
+Quel que soit le pilote, les fichiers ne sont jamais servis directement. Ils passent par `/api/files/…` (voir [Sécurité](#sécurité)). Les photos importées sont converties en miniature 480 px et en aperçu 2048 px au format WebP. L'original est conservé, et la date et le lieu de prise de vue sont extraits des métadonnées EXIF.
+
+---
+
+## Production
+
+1. Créez un `.env` avec au minimum :
+   - `APP_URL=https://votre-domaine` ;
+   - un `POSTGRES_PASSWORD` fort ;
+   - `AUTH_SECRET` (`openssl rand -base64 48`) ;
+   - un vrai fournisseur d'e-mail.
+2. Placez l'application derrière un reverse proxy HTTPS (Caddy, Traefik, Nginx) qui transmet `X-Forwarded-For` et `X-Forwarded-Proto`.
+3. Lancez `docker compose up -d --build`.
+4. Sauvegardez régulièrement la base et les fichiers :
+
+```bash
+docker compose exec db pg_dump -U appli appli | gzip > sauvegarde-$(date +%F).sql.gz
+docker run --rm -v appli_storage:/data -v "$PWD":/backup alpine tar czf /backup/fichiers-$(date +%F).tgz -C /data .
+```
+
+L'image de production est construite en plusieurs étapes à partir de `node:22-alpine` :
+
+- elle s'exécute avec un utilisateur non root ;
+- elle utilise la sortie `standalone` de Next.js ;
+- un healthcheck interroge `/api/health`, qui vérifie aussi la base ;
+- les scripts Node (worker, migrations, seed) sont regroupés avec esbuild dans `dist/`.
+
+En HTTPS, l'application ajoute les en-têtes HSTS. Elle envoie toujours une Content-Security-Policy stricte et `X-Frame-Options: DENY`.
+
+---
+
+## Architecture
+
+```
+app/                    Routes (App Router)
+  (auth)/               Connexion, inscription, mots de passe, vérification d'e-mail
+  (app)/                Application authentifiée : tableau de bord, carte, tâches, calendrier,
+                        souvenirs, films, playlist, voyages, fun, paramètres
+  api/                  Fichiers, photos, recherche, géocodage, export, Spotify, santé
+  invite/[token]/       Acceptation d'une invitation
+  onboarding/           Création de l'espace
+components/
+  ui/                   Composants de base (boutons, champs, modales, menus…)
+  <domaine>/            Composants par fonctionnalité
+lib/                    Code partagé client/serveur : validation Zod, dates, domaine, hooks
+server/                 Code serveur uniquement (import "server-only")
+  db/                   Pool PostgreSQL et template SQL
+  auth/                 Mots de passe, sessions, jetons, rate limiting, gardes d'accès
+  services/             Logique métier et requêtes SQL, toujours filtrées par espace
+  actions/              Server Actions : validation Zod, puis appel des services
+  storage/              Stockage local ou S3 et URLs signées
+  media/                Traitement des images (sharp, EXIF)
+  email/                Envoi et modèles d'e-mails
+  integrations/         TMDB, Spotify, géocodage
+worker/                 Worker des rappels
+db/migrations/          Migrations SQL
+scripts/                Migrations, seed, build des scripts, entrypoint Docker
+tests/                  Vitest (unitaires et intégration) et Playwright (e2e)
+proxy.ts                Redirection des visiteurs non connectés (contrôle optimiste)
+```
+
+Chaque mutation suit le même chemin :
+
+1. un composant client appelle une **Server Action** ;
+2. `workspaceAction(schema, handler)` valide l'entrée avec Zod et résout la session et l'espace **côté serveur** ;
+3. le service exécute un SQL toujours filtré par `workspace_id = ctx.workspace.id` ;
+4. le composant reçoit `{ ok, data }` ou `{ ok: false, error, fieldErrors }`.
+
+---
+
+## Sécurité
+
+- **Mots de passe** : hachés en Argon2id, au moins 10 caractères, comparaison en temps constant.
+- **Sessions** :
+  - stockées en base ; le cookie contient un jeton aléatoire de 256 bits, et la base n'en garde que le hachage SHA-256 ;
+  - cookie `HttpOnly` et `SameSite=Lax`, avec `Secure` et le préfixe `__Host-` en HTTPS ;
+  - expiration glissante de 30 jours ;
+  - révocation de toutes les sessions lors d'un changement ou d'une réinitialisation de mot de passe.
+- **Jetons à usage unique** (vérification, réinitialisation, invitations) : aléatoires, stockés hachés et à durée limitée. La demande de réinitialisation ne révèle pas si une adresse existe.
+- **Rate limiting** en base sur la connexion, l'inscription, les e-mails, le géocodage et les imports.
+- **Isolation des espaces** :
+  - l'identifiant d'espace n'est **jamais** lu depuis le client ; il est dérivé de la session à chaque requête (`requireWorkspace`, `getApiContext`) ;
+  - chaque requête SQL filtre par `workspace_id` ;
+  - les clés étrangères composites empêchent toute référence entre espaces ;
+  - un utilisateur appartient à un seul espace, et un espace compte au plus deux membres (vérifié en transaction avec verrou).
+- **Fichiers privés** :
+  - jamais dans `public/` ;
+  - URLs signées par HMAC et à durée limitée ;
+  - `/api/files` vérifie aussi que la session appartient à l'espace propriétaire du fichier, si bien qu'une URL signée qui a fuité reste inutilisable par quelqu'un d'autre.
+- **Imports** : type vérifié par le contenu (sharp, signature PDF), taille limitée, ré-encodage des images (ce qui supprime les métadonnées des versions affichées).
+- **Server Actions** : protection CSRF native de Next.js (vérification de l'origine) et validation Zod systématique.
+- **Redirections** : le paramètre `next` n'accepte que des chemins internes.
+- **En-têtes** : CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS en production.
+- **RGPD** :
+  - export complet en ZIP (JSON, photos originales et documents) ;
+  - effacement du contenu de l'espace ;
+  - suppression du compte. Si le compte est seul dans l'espace, l'espace est supprimé avec ses données ; sinon, l'espace et les données partagées restent au partenaire.
+- **Secrets** : uniquement dans `.env`, ignoré par Git. `.env.example` ne contient aucune vraie clé.
+
+---
+
+## Tests
+
+```bash
+# Unitaires et intégration. La base de test est recréée et migrée à chaque lancement :
+# par défaut postgresql://appli:appli@localhost:5432/appli_test, modifiable avec TEST_DATABASE_URL.
+npm test
+
+# Bout en bout : démarre un serveur de développement sur le port 3200.
+npm run test:e2e
+# Ou contre une instance déjà lancée :
+E2E_BASE_URL=http://localhost:3000 npm run test:e2e
+```
+
+Les tests e2e créent des comptes dans la base indiquée par `DATABASE_URL` et vident la table `rate_limits` au démarrage. Ne les lancez pas contre une base de production.
+
+Couverture :
+
+- **Unitaires** : générateur SQL (paramétrage, fragments imbriqués), dates et fuseaux, signatures d'URL, redirections sûres, schémas de validation.
+- **Intégration (PostgreSQL réel)** :
+  - étanchéité entre deux espaces : lecture, modification et suppression refusées, clés étrangères entre espaces rejetées ;
+  - invitations : limite de deux membres, invitation expirée ou déjà utilisée ;
+  - suppression de compte.
+- **E2E (Chromium, desktop et mobile)** :
+  - parcours complet : inscription, vérification, création de l'espace, invitation, partage des données ;
+  - étanchéité : un troisième compte ne voit rien, et une URL signée de photo lui est refusée ;
+  - redirection des pages protégées ;
+  - échec de connexion.
+
+---
+
+## Fonctionnalités
+
+- **Comptes** :
+  - inscription et connexion ; vérification de l'e-mail ;
+  - mot de passe oublié et changement de mot de passe ;
+  - avatar ; les autres sessions sont fermées à chaque changement de mot de passe.
+- **Espace à deux** : invitation par e-mail ou par lien, aperçu de l'invitation, révocation, renommage de l'espace, date de début de la relation, départ de l'espace.
+- **Tableau de bord** : nombre de jours ensemble, prochain voyage avec compte à rebours, prochain événement et prochaine réservation, tâches à faire, film suggéré pour ce soir, activité suggérée, dernier souvenir.
+- **Carte** :
+  - lieux visités ou à découvrir, avec catégories, notes et filtres ;
+  - recherche d'adresse et ajout par clic sur la carte.
+- **Tâches** :
+  - vue liste et vue tableau (glisser-déposer) ;
+  - catégories, priorités, échéances, assignation ;
+  - archives.
+- **Calendrier** : vues mois, semaine et agenda ; événements récurrents (anniversaires) ; rappels.
+- **Souvenirs** :
+  - import multiple par glisser-déposer avec progression ;
+  - albums et visionneuse ;
+  - timeline avec dates marquantes ; téléchargement de l'original.
+- **Films** : recherche TMDB, liste « à voir », films vus avec deux notes et deux avis, filtres et tri.
+- **Playlist** : connexion Spotify ou lien de playlist, lecteur intégré.
+- **Voyages** : voyages avec couverture, budget et notes ; réservations (hôtel, transport, restaurant, activité) avec documents PDF ou images ; ajout automatique au calendrier.
+- **Fun** :
+  - quiz créés par l'un et joués par l'autre ;
+  - « Qui de nous deux ? » ;
+  - tirage au sort d'activités et roue ;
+  - défis ; badges débloqués automatiquement.
+- **Recherche globale** (Ctrl/⌘ K) dans tous les contenus, avec actions rapides.
+- **Paramètres** : compte, couple, notifications, apparence (clair, sombre, système), confidentialité (export, effacement, suppression).
+- **Interface** :
+  - responsive, avec navigation mobile ;
+  - mode sombre dédié ;
+  - navigation au clavier, focus visibles, libellés ARIA ;
+  - animations respectant `prefers-reduced-motion`.
