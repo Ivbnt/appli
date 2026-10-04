@@ -421,6 +421,9 @@ Couverture :
 - **Playlist** : connexion Spotify ou lien de playlist, lecteur intégré.
 - **Voyages** : voyages avec couverture, budget et notes ; réservations (hôtel, transport, restaurant, activité) avec documents PDF ou images ; ajout automatique au calendrier.
 - **Fun** :
+  - **Questions de couple** : 520 questions en 10 niveaux d'intensité. Tirage sans répétition par niveau, ou liste complète ; la règle du « passe » et du « pourquoi ? » est rappelée ;
+  - **Défis de soirée** : 270 défis. Mode libre, par pile (Party, Couple, After Dark) ou par catégorie, ou « soirée guidée » acte par acte. S'y ajoutent les cartes modificateurs et spéciales, un PASS par personne et des missions secrètes ;
+  - contenu 18+ (niveaux 7 à 10, After Dark, positions, modificateurs) masqué par défaut, avec une option par appareil ;
   - quiz créés par l'un et joués par l'autre ;
   - « Qui de nous deux ? » ;
   - tirage au sort d'activités et roue ;
