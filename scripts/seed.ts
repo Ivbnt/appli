@@ -42,7 +42,7 @@ async function abstractImage(seed: number) {
   return sharp(Buffer.from(svg)).jpeg({ quality: 86 }).toBuffer();
 }
 
-const CONTENT_TABLES = ["locations", "tasks", "calendar_events", "photos", "movies", "trips", "challenges", "quizzes"];
+const CONTENT_TABLES = ["locations", "tasks", "calendar_events", "photos", "movies", "trips"];
 
 async function main() {
   const force = process.argv.includes("--force");
@@ -203,17 +203,7 @@ async function main() {
   await saveMilestone(workspaceId, lea!.id, { title: "Notre premier appartement", description: null, date: "2022-09-01", photoId: photoIds[8] ?? null });
   await saveMilestone(workspaceId, hugo!.id, { title: "Coucher de soleil à Lisbonne", description: "Depuis le Miradouro da Senhora do Monte.", date: "2023-09-21", photoId: photoIds[2] ?? null });
 
-  console.info("→ Défis et activités");
-  for (const challenge of [
-    { title: "Une nouvelle recette chaque semaine", description: "Pendant un mois, une recette jamais testée chaque dimanche.", difficulty: "medium", duration: "1 mois", reward: "Un dîner au restaurant", status: "in_progress" },
-    { title: "Une semaine sans écrans le soir", description: null, difficulty: "hard", duration: "1 semaine", reward: "Un week-end surprise", status: "todo" },
-    { title: "Visiter un musée par mois", description: null, difficulty: "easy", duration: "3 mois", reward: null, status: "done" },
-  ] as const) {
-    await db.exec(sql`
-      INSERT INTO challenges (workspace_id, title, description, difficulty, duration, reward, status, started_at, completed_at, created_by_id)
-      VALUES (${workspaceId}, ${challenge.title}, ${challenge.description}, ${challenge.difficulty}, ${challenge.duration}, ${challenge.reward},
-              ${challenge.status}, ${challenge.status === "todo" ? null : new Date()}, ${challenge.status === "done" ? new Date() : null}, ${lea!.id})`);
-  }
+  console.info("→ Activités");
   await db.exec(sql`UPDATE activities SET done_count = 1, last_done_at = now() WHERE workspace_id = ${workspaceId} AND label IN ('Cinéma', 'Balade', 'Musée')`);
 
   await evaluateBadges(workspaceId);

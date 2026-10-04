@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { parseAccounts } from "@/lib/accounts";
 import { loginSchema } from "@/lib/validation/auth";
 import { eventInputSchema } from "@/lib/validation/events";
-import { quizQuestionSchema } from "@/lib/validation/fun";
 import { reservationInputSchema, tripInputSchema } from "@/lib/validation/trips";
 import { reminderSummary, whenLabel } from "@/server/services/reminders";
 import { fromLocalInput } from "@/lib/dates";
@@ -38,12 +37,6 @@ describe("validation", () => {
     const reservation = { title: "Vol", type: "flight", date: "2027-04-12", time: "07:45", endDate: null, endTime: null, location: null, origin: "Paris", destination: "Rome", provider: null, confirmationNumber: null, price: 189.4, currency: "EUR", url: "javascript:alert(1)", notes: null, tripId: null, addToCalendar: true } as const;
     expect(reservationInputSchema.safeParse(reservation).success).toBe(false);
     expect(reservationInputSchema.safeParse({ ...reservation, url: "https://airfrance.fr" }).success).toBe(true);
-  });
-
-  it("une question de quiz a des réponses distinctes", () => {
-    const id = "00000000-0000-0000-0000-000000000000";
-    expect(quizQuestionSchema.safeParse({ quizId: id, prompt: "?", options: ["Plage", "plage"] }).success).toBe(false);
-    expect(quizQuestionSchema.safeParse({ quizId: id, prompt: "?", options: ["Plage"] }).success).toBe(false);
   });
 });
 

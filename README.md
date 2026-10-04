@@ -60,7 +60,7 @@ Le nom affiché et la photo se modifient dans **Paramètres → Compte**. Les ad
 docker compose exec app node dist/seed.mjs
 ```
 
-Le seed ajoute des données fictives à l'espace des deux comptes : lieux, tâches, événements, photos, films, voyage, quiz et défis. Il ne fait rien si l'espace contient déjà des données. Avec `--force`, il **efface d'abord tout le contenu** de l'espace : à réserver à un essai.
+Le seed ajoute des données fictives à l'espace des deux comptes : lieux, tâches, événements, photos, films, voyage et activités. Il ne fait rien si l'espace contient déjà des données. Avec `--force`, il **efface d'abord tout le contenu** de l'espace : à réserver à un essai.
 
 ### Dépannage
 
@@ -193,7 +193,7 @@ Pour faire évoluer le schéma, ajoutez un fichier `0002_description.sql`. Ne mo
 | Souvenirs | `albums`, `photos`, `milestones` |
 | Films et musique | `movies`, `movie_reviews`, `playlists`, `spotify_connections` |
 | Voyages | `trips`, `reservations` |
-| Fun | `activities`, `challenges`, `quizzes`, `quiz_questions`, `quiz_answers`, `badges`, `user_badges` |
+| Fun | `activities`, `quizzes` / `quiz_questions` / `quiz_answers` (« Qui de nous deux ? »), `badges`, `user_badges` |
 | Maintenance | `pending_file_deletions` |
 
 Chaque ressource porte un `workspace_id`. Les références entre ressources utilisent des **clés étrangères composites** `(workspace_id, id)`, si bien qu'une tâche ne peut pas, même par erreur, pointer vers un lieu d'un autre espace.
@@ -423,11 +423,9 @@ Couverture :
 - **Fun** :
   - **Questions de couple** : 520 questions en 10 niveaux d'intensité. Tirage sans répétition par niveau, ou liste complète ; la règle du « passe » et du « pourquoi ? » est rappelée ;
   - **Défis de soirée** : 270 défis. Mode libre, par pile (Party, Couple, After Dark) ou par catégorie, ou « soirée guidée » acte par acte. S'y ajoutent les cartes modificateurs et spéciales, un PASS par personne et des missions secrètes ;
-  - contenu 18+ (niveaux 7 à 10, After Dark, positions, modificateurs) masqué par défaut, avec une option par appareil ;
-  - quiz créés par l'un et joués par l'autre ;
-  - « Qui de nous deux ? » ;
-  - tirage au sort d'activités et roue ;
-  - défis ; badges débloqués automatiquement.
+  - **Qui de nous deux ?** : 200 questions originales en 10 thèmes (mauvaise foi, scénarios catastrophe, notre vie en film, dans 40 ans, un peu piquant…). Chacun répond de son côté et les réponses sont comparées ; on peut passer une question ou ajouter les siennes ;
+  - contenu 18+ (niveaux 7 à 10, After Dark, positions, modificateurs, thème « Un peu piquant ») masqué par défaut, avec une option par appareil ;
+  - tirage au sort d'activités et roue ; badges débloqués automatiquement.
 - **Recherche globale** (Ctrl/⌘ K) dans tous les contenus, avec actions rapides.
 - **Paramètres** : compte, couple, notifications, apparence (clair, sombre, système), confidentialité (export, effacement du contenu).
 - **Interface** :

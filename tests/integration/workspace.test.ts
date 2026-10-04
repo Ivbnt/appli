@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { rateLimit } from "@/server/auth/rate-limit";
+import { LEGACY_WHO_OF_US, WHO_OF_US_CATEGORIES } from "@/lib/fun/who-of-us-data";
 import { db, sql } from "@/server/db";
 import { env } from "@/server/env";
 import { ensureAccounts, isConfiguredEmail } from "@/server/services/accounts";
 import { evaluateBadges } from "@/server/services/badges";
 import { unlockAlma } from "@/server/services/easter-egg";
+import { getWhoOfUs } from "@/server/services/fun";
+import { whoLibraryKey } from "@/server/services/defaults";
 import { createTrip } from "@/server/services/trips";
 import { createCouple, testAccount } from "./helpers";
 
@@ -116,5 +119,46 @@ describe("easter egg A·L·M·A", () => {
     const events = await db.many<{ title: string; recurrence: string; type: string }>(sql`
       SELECT title, recurrence, type FROM calendar_events WHERE workspace_id = ${workspaceId}`);
     expect(events).toEqual([{ title: "Alma ✨", recurrence: "yearly", type: "important_date" }]);
+  });
+});
+
+describe("« Qui de nous deux ? »", () => {
+  const promptsOf = (workspaceId: string) =>
+    db.many<{ prompt: string; category: string | null }>(sql`
+      SELECT q.prompt, q.category FROM quiz_questions q JOIN quizzes z ON z.id = q.quiz_id
+      WHERE z.workspace_id = ${workspaceId} AND z.kind = 'who_of_us' ORDER BY q.position`);
+
+  it("un nouvel espace reçoit les 200 questions, une seule fois, sans quiz de couple", async () => {
+    const { user, workspaceId } = await createCouple("Alice");
+    const total = WHO_OF_US_CATEGORIES.reduce((sum, c) => sum + c.questions.length, 0);
+    expect(total).toBe(200);
+    expect(await promptsOf(workspaceId)).toHaveLength(total);
+    expect(await db.count(sql`SELECT count(*) FROM quizzes WHERE workspace_id = ${workspaceId} AND kind <> 'who_of_us'`)).toBe(0);
+
+    // Une question supprimée ne revient pas.
+    const [first] = await promptsOf(workspaceId);
+    await db.exec(sql`DELETE FROM quiz_questions WHERE prompt = ${first!.prompt}`);
+    await getWhoOfUs(workspaceId, user.id);
+    expect(await promptsOf(workspaceId)).toHaveLength(total - 1);
+  });
+
+  it("un ancien espace : la liste est ajoutée, les anciennes questions simples non répondues sont retirées", async () => {
+    const { user, workspaceId } = await createCouple("Alice");
+    await db.exec(sql`DELETE FROM app_settings WHERE key = ${whoLibraryKey(workspaceId)}`);
+    await db.exec(sql`DELETE FROM quiz_questions q USING quizzes z WHERE q.quiz_id = z.id AND z.workspace_id = ${workspaceId}`);
+    const { id: quizId } = await db.one<{ id: string }>(sql`SELECT id FROM quizzes WHERE workspace_id = ${workspaceId} AND kind = 'who_of_us'`);
+    const [answeredLegacy, unansweredLegacy] = LEGACY_WHO_OF_US;
+    for (const [position, prompt] of [answeredLegacy!, unansweredLegacy!, "Qui a inventé cette question ?"].entries()) {
+      await db.exec(sql`INSERT INTO quiz_questions (quiz_id, prompt, position) VALUES (${quizId}, ${prompt}, ${position})`);
+    }
+    const { id: questionId } = await db.one<{ id: string }>(sql`SELECT id FROM quiz_questions WHERE quiz_id = ${quizId} AND prompt = ${answeredLegacy!}`);
+    await db.exec(sql`INSERT INTO quiz_answers (question_id, user_id, value) VALUES (${questionId}, ${user.id}, ${user.id})`);
+
+    const questions = await getWhoOfUs(workspaceId, user.id);
+    const prompts = questions.map((q) => q.prompt);
+    expect(prompts).toContain(answeredLegacy);
+    expect(prompts).not.toContain(unansweredLegacy);
+    expect(prompts).toContain("Qui a inventé cette question ?");
+    expect(questions.filter((q) => q.category !== null)).toHaveLength(200);
   });
 });

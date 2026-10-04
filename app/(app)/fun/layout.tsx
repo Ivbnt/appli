@@ -13,8 +13,6 @@ export default function FunLayout({ children }: LayoutProps<"/fun">) {
             { href: "/fun/tonight", label: "Ce soir" },
             { href: "/fun/wheel", label: "Roue" },
             { href: "/fun/who", label: "Qui de nous deux ?" },
-            { href: "/fun/quiz", label: "Quiz" },
-            { href: "/fun/challenges", label: "Nos défis" },
             { href: "/fun/badges", label: "Badges" },
           ]}
         />

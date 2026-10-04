@@ -9,7 +9,6 @@ export type BadgeMetric =
   | "activities_done"
   | "recipes_done"
   | "photos"
-  | "challenges_done"
   | "tasks_done";
 
 export type BadgeProgress = {
@@ -41,7 +40,6 @@ export async function workspaceMetrics(workspaceId: string): Promise<Record<Badg
       (SELECT count(*) FROM tasks t JOIN task_categories c ON c.id = t.category_id
         WHERE t.workspace_id = ${workspaceId} AND t.status = 'done' AND c.slug = 'recipes')::int AS recipes_done,
       (SELECT count(*) FROM photos WHERE workspace_id = ${workspaceId})::int AS photos,
-      (SELECT count(*) FROM challenges WHERE workspace_id = ${workspaceId} AND status = 'done')::int AS challenges_done,
       (SELECT count(*) FROM tasks WHERE workspace_id = ${workspaceId} AND status = 'done')::int AS tasks_done`);
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, Users } from "lucide-react";
+import { Plus, SkipForward, Trash2, Users } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -11,10 +11,15 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { WHO_OF_US_CATEGORIES } from "@/lib/fun/who-of-us-data";
 import { useSyncedState } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { addWhoQuestionAction, answerQuestionAction, deleteQuestionAction } from "@/server/actions/fun";
 import type { QuestionView } from "@/server/services/fun";
+import { AdultToggle, useAdultContent } from "./game-card";
+
+const CATEGORIES = new Map(WHO_OF_US_CATEGORIES.map((c) => [c.id, c]));
+const ANSWERS_PREVIEW = 10;
 
 export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
   const router = useRouter();
@@ -25,10 +30,18 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
   const [questions, setQuestions] = useSyncedState(initial);
   const [prompt, setPrompt] = React.useState("");
   const [pending, startTransition] = React.useTransition();
+  const [adult] = useAdultContent();
+  const [skipped, setSkipped] = React.useState<string[]>([]);
+  const [showAll, setShowAll] = React.useState(false);
 
-  const nextIndex = questions.findIndex((q) => q.myAnswer === null);
-  const current = nextIndex >= 0 ? questions[nextIndex] : null;
-  const answered = questions.filter((q) => q.myAnswer !== null);
+  const visible = questions.filter((q) => adult || !CATEGORIES.get(q.category ?? "")?.adult);
+  const unanswered = visible.filter((q) => q.myAnswer === null);
+  // Les questions passées reviennent à la fin de la file.
+  const queue = [...unanswered.filter((q) => !skipped.includes(q.id)), ...unanswered.filter((q) => skipped.includes(q.id))];
+  const current = queue[0] ?? null;
+  const category = current?.category ? CATEGORIES.get(current.category) : null;
+  const answered = visible.filter((q) => q.myAnswer !== null).reverse();
+  const skip = (question: QuestionView) => setSkipped((list) => [...list.filter((id) => id !== question.id), question.id]);
   const memberName = (id: string | null) => (id === user.id ? "Vous" : members.find((m) => m.id === id)?.name ?? "—");
 
   const answer = (question: QuestionView, value: string) => {
@@ -70,8 +83,15 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
             className="rounded-3xl border border-border bg-surface p-6 text-center shadow-sm sm:p-10"
             aria-live="polite"
           >
-            <p className="text-xs font-medium text-muted tabular">
-              Question {nextIndex + 1} sur {questions.length}
+            <p className="flex items-center justify-center gap-2 text-xs font-medium text-muted">
+              {category && (
+                <span className="rounded-full bg-surface-muted px-2.5 py-1">
+                  <span aria-hidden>{category.emoji}</span> {category.title}
+                </span>
+              )}
+              <span className="tabular">
+                {queue.length} restante{queue.length > 1 ? "s" : ""}
+              </span>
             </p>
             <h2 className="mx-auto mt-4 max-w-md text-2xl font-semibold tracking-tight text-balance">{current.prompt}</h2>
             <div className="mt-8 grid grid-cols-2 gap-3">
@@ -88,9 +108,12 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
                 </button>
               ))}
             </div>
-            {members.length < 2 && <p className="mt-4 text-xs text-muted">Les réponses se comparent dès que votre partenaire a joué.</p>}
+            <Button variant="ghost" size="sm" className="mt-4" onClick={() => skip(current)} disabled={queue.length < 2}>
+              <SkipForward /> Passer
+            </Button>
+            {members.length < 2 && <p className="mt-2 text-xs text-muted">Les réponses se comparent dès que votre partenaire a joué.</p>}
           </motion.section>
-        ) : questions.length > 0 ? (
+        ) : visible.length > 0 ? (
           <motion.div key="done" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl border border-border bg-surface p-8 text-center">
             <p className="text-heading">Vous avez répondu à toutes les questions.</p>
             <p className="mt-1 text-sm text-muted">Ajoutez-en de nouvelles ci-dessous pour continuer.</p>
@@ -109,9 +132,11 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
 
       {answered.length > 0 && (
         <section>
-          <h3 className="text-heading mb-3">Vos réponses</h3>
+          <h3 className="text-heading mb-3">
+            Vos réponses <span className="font-normal text-subtle tabular">{answered.length}</span>
+          </h3>
           <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-            {answered.map((question) => {
+            {(showAll ? answered : answered.slice(0, ANSWERS_PREVIEW)).map((question) => {
               const agree = question.partnerAnswer !== null && question.partnerAnswer === question.myAnswer;
               return (
                 <li key={question.id} className="group flex items-center gap-3 px-4 py-3.5">
@@ -147,8 +172,15 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
               );
             })}
           </ul>
+          {answered.length > ANSWERS_PREVIEW && (
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Afficher moins" : `Afficher les ${answered.length} réponses`}
+            </Button>
+          )}
         </section>
       )}
+
+      <AdultToggle />
     </div>
   );
 }
