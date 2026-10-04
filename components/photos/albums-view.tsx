@@ -12,6 +12,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { formatDate } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { createAlbumAction, deleteAlbumAction, updateAlbumAction } from "@/server/actions/photos";
 import type { Album } from "./types";
 
@@ -37,13 +38,12 @@ export function AlbumForm({
   const [error, setError] = React.useState<string | undefined>();
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (open) {
-      setTitle(album?.title ?? "");
-      setDescription(album?.description ?? "");
-      setError(undefined);
-    }
-  }, [open, album]);
+  useOnChange(open ? album ?? "new" : null, (key) => {
+    if (key === null) return;
+    setTitle(album?.title ?? "");
+    setDescription(album?.description ?? "");
+    setError(undefined);
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

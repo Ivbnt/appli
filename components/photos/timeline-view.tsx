@@ -14,6 +14,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { formatDay, formatDayRange, todayISO } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { createMilestoneAction, deleteMilestoneAction, updateMilestoneAction } from "@/server/actions/photos";
 import type { Milestone, Photo } from "./types";
@@ -44,14 +45,14 @@ function MilestoneForm({
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? milestone ?? "new" : null, (key) => {
+    if (key === null) return;
     setTitle(milestone?.title ?? "");
     setDescription(milestone?.description ?? "");
     setDate(milestone?.date ?? todayISO());
     setPhotoId(milestone?.photoId ?? null);
     setErrors({});
-  }, [open, milestone]);
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

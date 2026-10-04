@@ -13,6 +13,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
 import { formatDate } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { CHALLENGE_DIFFICULTIES, CHALLENGE_STATUSES, type ChallengeDifficulty, type ChallengeStatus } from "@/lib/domain";
 import { createChallengeAction, deleteChallengeAction, setChallengeStatusAction, updateChallengeAction } from "@/server/actions/fun";
 import type { Challenge } from "@/server/services/fun";
@@ -24,8 +25,8 @@ function ChallengeForm({ open, onOpenChange, challenge, onSaved }: { open: boole
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? challenge ?? "new" : null, (key) => {
+    if (key === null) return;
     setDraft({
       title: challenge?.title ?? "",
       description: challenge?.description ?? "",
@@ -35,7 +36,7 @@ function ChallengeForm({ open, onOpenChange, challenge, onSaved }: { open: boole
       status: challenge?.status ?? "todo",
     });
     setErrors({});
-  }, [open, challenge]);
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

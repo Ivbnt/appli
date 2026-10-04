@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toLocalInput, todayISO } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { RESERVATION_TYPES, RESERVATION_TYPE_VALUES, type ReservationType } from "@/lib/domain";
 import { formatBytes } from "@/lib/utils";
 import {
@@ -122,15 +123,14 @@ export function ReservationForm({
   const [pending, startTransition] = React.useTransition();
   const fileInput = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? reservation ?? defaults ?? "new" : null, (key) => {
+    if (key === null) return;
     const trip = trips.find((t) => t.id === defaults?.tripId);
     setDraft(toDraft(reservation, { ...(trip && !reservation ? { date: trip.startDate } : {}), ...defaults }));
     setFile(null);
     setErrors({});
     setError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- réinitialisé à chaque ouverture
-  }, [open, reservation]);
+  });
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 

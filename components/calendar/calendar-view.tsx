@@ -1,12 +1,13 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Spinner } from "@/components/ui/spinner";
 import { addDays, addMonths, formatDay, todayISO } from "@/lib/dates";
+import { useSearchParamIntent, useSyncedState } from "@/lib/hooks";
 import { ucfirst } from "@/lib/utils";
 import { AgendaView } from "./agenda-view";
 import { EventDetails } from "./event-details";
@@ -41,9 +42,8 @@ export function CalendarView({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [navigating, startNavigation] = React.useTransition();
-  const [selectedDay, setSelectedDay] = React.useState(anchor);
+  const [selectedDay, setSelectedDay] = useSyncedState(anchor);
   const [details, setDetails] = React.useState<Occurrence | null>(null);
   const [editor, setEditor] = React.useState<{ open: boolean; event: Occurrence | null; defaults: EventDefaults }>({
     open: false,
@@ -51,23 +51,13 @@ export function CalendarView({
     defaults: {},
   });
 
-  React.useEffect(() => setSelectedDay(anchor), [anchor]);
-
   // Ouverture depuis la recherche (?event=…) ou une action rapide (?new=1).
-  React.useEffect(() => {
-    const eventId = searchParams.get("event");
-    if (eventId) {
-      const found = occurrences.find((o) => o.id === eventId);
-      if (found) setDetails(found);
-    }
-    if (searchParams.get("new")) setEditor({ open: true, event: null, defaults: {} });
-    if (eventId || searchParams.get("new")) {
-      const params = new URLSearchParams(searchParams);
-      params.delete("event");
-      params.delete("new");
-      router.replace(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
-    }
-  }, [searchParams, occurrences, pathname, router]);
+  useSearchParamIntent(["event", "new"], (params) => {
+    const eventId = params.get("event");
+    const found = eventId ? occurrences.find((o) => o.id === eventId) : null;
+    if (found) setDetails(found);
+    if (params.get("new")) setEditor({ open: true, event: null, defaults: {} });
+  });
 
   const navigate = (next: { view?: CalendarViewMode; date?: string }) => {
     const params = new URLSearchParams();

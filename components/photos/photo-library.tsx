@@ -1,13 +1,14 @@
 "use client";
 
 import { FolderInput, ImagePlus, Images, Trash2, X } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
+import { useOnChange, useSearchParamIntent } from "@/lib/hooks";
 import { deletePhotosAction, movePhotosAction, setAlbumCoverAction } from "@/server/actions/photos";
 import { AlbumPicker } from "./album-picker";
 import { Lightbox } from "./lightbox";
@@ -37,8 +38,6 @@ export function PhotoLibrary({
   toolbarExtra?: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const confirm = useConfirm();
   const [photos, setPhotos] = React.useState(initialPhotos);
   const [cursor, setCursor] = React.useState(initialCursor);
@@ -50,10 +49,10 @@ export function PhotoLibrary({
   const fileInput = React.useRef<HTMLInputElement>(null);
   const sentinel = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  useOnChange(initialPhotos, () => {
     setPhotos(initialPhotos);
     setCursor(initialCursor);
-  }, [initialPhotos, initialCursor]);
+  });
 
   const addPhoto = React.useCallback((photo: Photo) => {
     setPhotos((current) =>
@@ -67,15 +66,16 @@ export function PhotoLibrary({
   const dragging = useDropzone(addFiles);
 
   // Ouverture directe (?photo=…) depuis la recherche, import rapide (?upload=1).
-  React.useEffect(() => {
-    const photoId = searchParams.get("photo");
-    if (photoId) {
-      const index = initialPhotos.findIndex((p) => p.id === photoId);
+  useSearchParamIntent(
+    ["photo", "upload"],
+    (params) => {
+      const index = initialPhotos.findIndex((p) => p.id === params.get("photo"));
       if (index >= 0) setLightbox(index);
-    }
-    if (searchParams.get("upload")) fileInput.current?.click();
-    if (photoId || searchParams.get("upload")) router.replace(pathname, { scroll: false });
-  }, [searchParams, initialPhotos, pathname, router]);
+    },
+    (params) => {
+      if (params.get("upload")) fileInput.current?.click();
+    },
+  );
 
   // Défilement infini.
   React.useEffect(() => {

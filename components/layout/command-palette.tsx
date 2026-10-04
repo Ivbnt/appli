@@ -43,11 +43,23 @@ const QUICK_ACTIONS = [
 const itemClass =
   "flex h-11 cursor-default items-center gap-3 rounded-lg px-3 text-sm outline-none select-none data-[selected=true]:bg-surface-hover [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-subtle";
 
-export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function CommandPalette({ open, onOpenChange: setOpen }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
-  const [results, setResults] = React.useState<SearchResult[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [response, setResponse] = React.useState<{ term: string; results: SearchResult[] } | null>(null);
+  const term = query.trim();
+  const searching = term.length >= 2;
+  const loading = searching && response?.term !== term;
+  const results = React.useMemo(() => (searching && response?.term === term ? response.results : []), [searching, response, term]);
+
+  // La recherche est vidée à la fermeture.
+  const onOpenChange = React.useCallback(
+    (next: boolean) => {
+      if (!next) setQuery("");
+      setOpen(next);
+    },
+    [setOpen],
+  );
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,36 +73,22 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   }, [open, onOpenChange]);
 
   React.useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setResults([]);
-    }
-  }, [open]);
-
-  React.useEffect(() => {
-    const term = query.trim();
-    if (term.length < 2) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
+    if (!searching) return;
     const controller = new AbortController();
-    setLoading(true);
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
-        if (response.ok) setResults(((await response.json()) as { results: SearchResult[] }).results);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        const data = res.ok ? ((await res.json()) as { results: SearchResult[] }).results : [];
+        setResponse({ term, results: data });
       } catch {
-        // requête annulée par une frappe plus récente
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) setResponse({ term, results: [] });
       }
     }, 160);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [term, searching]);
 
   const go = (href: string) => {
     onOpenChange(false);
@@ -102,8 +100,6 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     for (const result of results) groups.set(result.kind, [...(groups.get(result.kind) ?? []), result]);
     return [...groups.entries()];
   }, [results]);
-
-  const searching = query.trim().length >= 2;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

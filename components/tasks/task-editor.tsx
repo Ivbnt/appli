@@ -12,6 +12,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
+import { useOnChange } from "@/lib/hooks";
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/domain";
 import { archiveTaskAction, createTaskAction, deleteTaskAction, updateTaskAction } from "@/server/actions/tasks";
 import type { Task, TaskCategory } from "./types";
@@ -62,8 +63,8 @@ export function TaskEditor({
   const [error, setError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? task ?? "new" : null, (key) => {
+    if (key === null) return;
     setErrors({});
     setError(null);
     setDraft(
@@ -79,8 +80,7 @@ export function TaskEditor({
           }
         : emptyDraft(defaults ?? {}),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- réinitialisé à chaque ouverture
-  }, [open, task]);
+  });
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 

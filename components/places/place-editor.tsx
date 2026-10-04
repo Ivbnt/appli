@@ -15,6 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import { RatingInput } from "@/components/ui/rating";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
+import { useOnChange } from "@/lib/hooks";
 import { PLACE_CATEGORIES, PLACE_CATEGORY_VALUES, type PlaceCategory, type PlaceStatus } from "@/lib/domain";
 import { createPlaceAction, deletePlaceAction, updatePlaceAction } from "@/server/actions/places";
 import { PLACE_ICONS } from "./place-meta";
@@ -92,15 +93,14 @@ export function PlaceEditor({
   const [pending, startTransition] = React.useTransition();
   const [view, setView] = React.useState(center);
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? place ?? "new" : null, (key) => {
+    if (key === null) return;
     const next = fromPlace(place, defaults ?? {});
     setDraft(next);
     setErrors({});
     setError(null);
     setView(next.latitude !== null ? { latitude: next.latitude, longitude: next.longitude!, zoom: 14 } : center);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- réinitialisé à chaque ouverture
-  }, [open, place]);
+  });
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 

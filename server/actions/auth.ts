@@ -161,7 +161,7 @@ export async function verifyEmailAction(_prev: FormState, formData: FormData): P
   redirect(invite ? `/invite/${invite}` : "/");
 }
 
-export async function resendVerificationAction(_prev: FormState): Promise<FormState> {
+export async function resendVerificationAction(): Promise<FormState> {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
   if (session.user.emailVerifiedAt) redirect("/");

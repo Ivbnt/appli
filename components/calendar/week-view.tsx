@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { addDays, formatDay, formatTime, toLocalInput, todayISO } from "@/lib/dates";
+import { useMounted } from "@/lib/hooks";
 import { cn, ucfirst } from "@/lib/utils";
 import { EVENT_STYLES } from "./event-style";
 import { EventRow } from "./month-view";
@@ -69,11 +70,12 @@ export function WeekView({
   const byDay = React.useMemo(() => groupByDay(occurrences), [occurrences]);
   const today = todayISO();
   const scroller = React.useRef<HTMLDivElement>(null);
-  const [now, setNow] = React.useState<Date | null>(null);
+  // Heure courante : uniquement côté navigateur (évite tout écart d'hydratation).
+  const mounted = useMounted();
+  const [now, setNow] = React.useState(() => new Date());
 
   React.useEffect(() => {
     scroller.current?.scrollTo({ top: HOUR * 7.5 });
-    setNow(new Date());
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -177,7 +179,7 @@ export function WeekView({
                     {height > 34 && <span className="tabular block truncate opacity-75">{formatTime(occurrence.occurrenceStart)}</span>}
                   </button>
                 ))}
-                {now && day === today && (
+                {mounted && day === today && (
                   <div className="pointer-events-none absolute inset-x-0 z-10 flex items-center" style={{ top: (minutesOf(now) / 60) * HOUR }}>
                     <span className="-ml-1 size-2 rounded-full bg-accent" />
                     <span className="h-px flex-1 bg-accent" />

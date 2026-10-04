@@ -4,48 +4,27 @@ const isDev = process.env.NODE_ENV !== "production";
 
 /**
  * Content-Security-Policy.
- * - Les images privées sont servies par l'application elle-même (ou via URL signée S3).
- * - Les tuiles de carte, affiches de films et pochettes Spotify viennent de domaines connus.
- * - Next.js injecte des scripts inline : 'unsafe-inline' reste nécessaire sans nonce.
+ * - Scripts : uniquement l'application (Next.js injecte des scripts inline, d'où 'unsafe-inline').
+ * - Images et connexions : l'application et des origines HTTPS (stockage S3 en URL signée,
+ *   tuiles de carte, affiches de films, pochettes Spotify), sans dépendre d'une configuration
+ *   connue seulement à l'exécution.
+ * - Seul le lecteur Spotify peut être intégré en iframe ; l'application ne peut pas l'être.
  */
 function contentSecurityPolicy() {
-  const storageOrigin = process.env.STORAGE_PUBLIC_ORIGIN ?? "";
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])],
     "style-src": ["'self'", "'unsafe-inline'"],
-    "img-src": [
-      "'self'",
-      "data:",
-      "blob:",
-      "https://image.tmdb.org",
-      "https://i.scdn.co",
-      "https://*.spotifycdn.com",
-      "https://mosaic.scdn.co",
-      "https://image-cdn-ak.spotifycdn.com",
-      "https://*.cartocdn.com",
-      "https://*.basemaps.cartocdn.com",
-      "https://api.maptiler.com",
-      ...(storageOrigin ? [storageOrigin] : []),
-    ],
+    "img-src": ["'self'", "data:", "blob:", "https:"],
     "font-src": ["'self'", "data:"],
-    "connect-src": [
-      "'self'",
-      "https://*.basemaps.cartocdn.com",
-      "https://basemaps.cartocdn.com",
-      "https://tiles.basemaps.cartocdn.com",
-      "https://api.maptiler.com",
-      "https://tiles.openfreemap.org",
-      ...(storageOrigin ? [storageOrigin] : []),
-      ...(isDev ? ["ws:", "wss:"] : []),
-    ],
+    "connect-src": ["'self'", "https:", ...(isDev ? ["ws:", "wss:"] : [])],
     "worker-src": ["'self'", "blob:"],
     "child-src": ["'self'", "blob:"],
     "frame-src": ["https://open.spotify.com"],
-    "media-src": ["'self'", "blob:", "https://p.scdn.co"],
+    "media-src": ["'self'", "blob:", "https:"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
-    "form-action": ["'self'"],
+    "form-action": ["'self'", "https://accounts.spotify.com"],
     "frame-ancestors": ["'none'"],
   };
   return Object.entries(directives)
@@ -74,7 +53,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   reactStrictMode: true,
   // sharp et les binaires natifs restent hors du bundle serveur.
-  serverExternalPackages: ["sharp", "@node-rs/argon2", "archiver"],
+  serverExternalPackages: ["sharp", "@node-rs/argon2", "archiver", "exifr"],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

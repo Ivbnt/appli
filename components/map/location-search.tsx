@@ -19,50 +19,42 @@ export function LocationSearch({
   autoFocus?: boolean;
 }) {
   const [query, setQuery] = React.useState("");
-  const [results, setResults] = React.useState<GeocodeResult[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [response, setResponse] = React.useState<{ term: string; results: GeocodeResult[]; error: string | null } | null>(null);
   const [open, setOpen] = React.useState(false);
   const [active, setActive] = React.useState(0);
   const listId = React.useId();
 
+  const term = query.trim();
+  const enabled = term.length >= 3;
+  const current = enabled && response?.term === term ? response : null;
+  const loading = enabled && !current;
+  const results = current?.results ?? [];
+  const error = current?.error ?? null;
+
   React.useEffect(() => {
-    const term = query.trim();
-    if (term.length < 3) {
-      setResults([]);
-      setError(null);
-      return;
-    }
+    if (!enabled) return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
-      setLoading(true);
       try {
-        const response = await fetch(`/api/geocode?q=${encodeURIComponent(term)}`, { signal: controller.signal });
-        const data = (await response.json()) as { results?: GeocodeResult[]; error?: string };
-        if (!response.ok) {
-          setError(data.error ?? "Recherche indisponible.");
-          setResults([]);
-        } else {
-          setError(null);
-          setResults(data.results ?? []);
-          setActive(0);
-        }
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        const data = (await res.json()) as { results?: GeocodeResult[]; error?: string };
+        setActive(0);
+        setResponse(res.ok ? { term, results: data.results ?? [], error: null } : { term, results: [], error: data.error ?? "Recherche indisponible." });
       } catch {
-        if (!controller.signal.aborted) setError("Recherche indisponible. Vous pouvez placer le point directement sur la carte.");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setResponse({ term, results: [], error: "Recherche indisponible. Vous pouvez placer le point directement sur la carte." });
+        }
       }
     }, 450);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [term, enabled]);
 
   const choose = (result: GeocodeResult) => {
     onSelect(result);
     setQuery("");
-    setResults([]);
     setOpen(false);
   };
 

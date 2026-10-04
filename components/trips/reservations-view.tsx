@@ -1,11 +1,11 @@
 "use client";
 
 import { Plus, Ticket } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Segmented } from "@/components/ui/segmented";
+import { useSearchParamIntent } from "@/lib/hooks";
 import { ucfirst } from "@/lib/utils";
 import { formatDate, toISODay, todayISO } from "@/lib/dates";
 import type { Reservation } from "@/server/services/trips";
@@ -13,21 +13,14 @@ import { ReservationCard } from "./reservation-card";
 import { ReservationForm } from "./reservation-form";
 
 export function ReservationsView({ reservations, trips }: { reservations: Reservation[]; trips: { id: string; title: string; startDate: string }[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [tab, setTab] = React.useState<"upcoming" | "past">("upcoming");
   const [form, setForm] = React.useState<{ open: boolean; reservation: Reservation | null }>({ open: false, reservation: null });
   const today = todayISO();
 
-  React.useEffect(() => {
-    const id = searchParams.get("reservation");
-    if (id) {
-      const found = reservations.find((r) => r.id === id);
-      if (found) setForm({ open: true, reservation: found });
-      router.replace(pathname, { scroll: false });
-    }
-  }, [searchParams, reservations, pathname, router]);
+  useSearchParamIntent(["reservation"], (params) => {
+    const found = reservations.find((r) => r.id === params.get("reservation"));
+    if (found) setForm({ open: true, reservation: found });
+  });
 
   const upcoming = reservations.filter((r) => toISODay(r.endsAt ?? r.startsAt) >= today);
   const past = reservations.filter((r) => toISODay(r.endsAt ?? r.startsAt) < today).reverse();

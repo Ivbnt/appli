@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toLocalInput, todayISO } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { EVENT_TYPES, EVENT_TYPE_VALUES, RECURRENCES, REMINDER_OPTIONS, type EventType, type Recurrence } from "@/lib/domain";
 import { createEventAction, deleteEventAction, updateEventAction } from "@/server/actions/calendar";
 import { EVENT_STYLES } from "./event-style";
@@ -87,13 +88,12 @@ export function EventEditor({
   const [error, setError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? event ?? defaults : null, (key) => {
+    if (key === null) return;
     setDraft(draftFrom(event, defaults, defaultReminder));
     setErrors({});
     setError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- réinitialisé à chaque ouverture
-  }, [open, event]);
+  });
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 

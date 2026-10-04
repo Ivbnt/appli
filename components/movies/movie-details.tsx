@@ -13,6 +13,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { Textarea } from "@/components/ui/input";
 import { RatingDisplay, RatingInput } from "@/components/ui/rating";
 import { formatDay, todayISO } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { formatDuration } from "@/lib/utils";
 import { deleteMovieAction, reviewMovieAction, updateMovieAction } from "@/server/actions/movies";
 import type { Movie } from "@/server/services/movies";
@@ -39,12 +40,12 @@ export function MovieDetails({
   const [watchedAt, setWatchedAt] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
+  useOnChange(movie, () => {
     setRating(myReview?.rating ?? null);
     setComment(myReview?.comment ?? "");
     setNotes(movie?.notes ?? "");
     setWatchedAt(movie?.watchedAt ?? null);
-  }, [movie, myReview]);
+  });
 
   if (!movie) return null;
 

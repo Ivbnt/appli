@@ -1,4 +1,5 @@
 import "server-only";
+import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 const booleanish = z
@@ -75,6 +76,14 @@ let cached: Env | undefined;
  */
 export function env(): Env {
   if (cached) return cached;
+  // Secret fourni sous forme de fichier (secret Docker ou secret généré au premier démarrage).
+  if (!process.env.AUTH_SECRET && process.env.AUTH_SECRET_FILE) {
+    try {
+      process.env.AUTH_SECRET = readFileSync(process.env.AUTH_SECRET_FILE, "utf8").trim();
+    } catch {
+      // le message de validation ci-dessous explique quoi faire
+    }
+  }
   const parsed = schema.safeParse(process.env);
   if (!parsed.success) {
     const details = parsed.error.issues

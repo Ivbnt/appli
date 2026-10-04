@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageContainer, PageHeader } from "@/components/layout/page-header";
 import { ArchivedTasks } from "@/components/tasks/archived-tasks";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { TabLinks } from "@/components/ui/tabs";
 import { requireWorkspace } from "@/server/auth/guards";
 import { listArchivedTasks, listCategories } from "@/server/services/tasks";

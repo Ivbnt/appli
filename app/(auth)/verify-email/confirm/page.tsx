@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { ConfirmEmailForm } from "@/components/auth/auth-forms";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { isAuthTokenValid } from "@/server/services/auth";
 
 export const metadata: Metadata = { title: "Confirmer l'adresse" };

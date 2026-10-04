@@ -117,9 +117,12 @@ export function TaskBoard({ tasks, categories, members, sortable, onToggle, onOp
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const origin = React.useRef<TaskStatus | null>(null);
 
-  React.useEffect(() => {
-    if (!activeId) setColumns(toColumns(tasks));
-  }, [tasks, activeId]);
+  // Resynchronise les colonnes avec les tâches, sauf pendant un glisser-déposer.
+  const [synced, setSynced] = React.useState({ tasks, activeId });
+  if (!activeId && (synced.tasks !== tasks || synced.activeId !== activeId)) {
+    setSynced({ tasks, activeId });
+    setColumns(toColumns(tasks));
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),

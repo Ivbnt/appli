@@ -53,7 +53,7 @@ export function usePhotoUploader(links: PhotoLinks, onUploaded: (photo: Photo) =
 
   const patch = (id: string, value: Partial<Upload>) => setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...value } : u)));
 
-  const pump = React.useCallback(() => {
+  const pump = React.useCallback(function run() {
     while (active.current < CONCURRENCY && queue.current.length > 0) {
       const next = queue.current.shift()!;
       active.current++;
@@ -66,7 +66,7 @@ export function usePhotoUploader(links: PhotoLinks, onUploaded: (photo: Photo) =
         .catch((error: Error) => patch(next.id, { status: "error", error: error.message }))
         .finally(() => {
           active.current--;
-          pump();
+          run();
         });
     }
   }, []);

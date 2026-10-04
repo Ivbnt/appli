@@ -2,7 +2,7 @@
 
 import { Clapperboard, Plus } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,7 @@ import { RatingDisplay } from "@/components/ui/rating";
 import { Segmented } from "@/components/ui/segmented";
 import { formatDay } from "@/lib/dates";
 import type { MovieStatus } from "@/lib/domain";
+import { useSearchParamIntent, useSyncedState } from "@/lib/hooks";
 import type { Movie, MovieStats } from "@/server/services/movies";
 import { AddMovie } from "./add-movie";
 import { MovieDetails } from "./movie-details";
@@ -27,27 +28,20 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 
 export function MoviesView({ initialMovies, stats, apiAvailable }: { initialMovies: Movie[]; stats: MovieStats; apiAvailable: boolean }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const reduce = useReducedMotion();
-  const [movies, setMovies] = React.useState(initialMovies);
-  React.useEffect(() => setMovies(initialMovies), [initialMovies]);
+  const [movies, setMovies] = useSyncedState(initialMovies);
   const [tab, setTab] = React.useState<MovieStatus>("watchlist");
   const [adding, setAdding] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    const movieId = searchParams.get("movie");
-    if (movieId) {
-      const movie = initialMovies.find((m) => m.id === movieId);
-      if (movie) {
-        setTab(movie.status);
-        setSelectedId(movie.id);
-      }
+  useSearchParamIntent(["movie", "new"], (params) => {
+    const movie = initialMovies.find((m) => m.id === params.get("movie"));
+    if (movie) {
+      setTab(movie.status);
+      setSelectedId(movie.id);
     }
-    if (searchParams.get("new")) setAdding(true);
-    if (movieId || searchParams.get("new")) router.replace(pathname, { scroll: false });
-  }, [searchParams, initialMovies, pathname, router]);
+    if (params.get("new")) setAdding(true);
+  });
 
   const visible = movies.filter((m) => m.status === tab);
   const selected = movies.find((m) => m.id === selectedId) ?? null;

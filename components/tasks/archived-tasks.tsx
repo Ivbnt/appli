@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/dates";
+import { useSyncedState } from "@/lib/hooks";
 import { archiveTaskAction, deleteTaskAction } from "@/server/actions/tasks";
 import type { Task, TaskCategory } from "./types";
 
 export function ArchivedTasks({ tasks, categories }: { tasks: Task[]; categories: TaskCategory[] }) {
   const confirm = useConfirm();
-  const [items, setItems] = React.useState(tasks);
-  React.useEffect(() => setItems(tasks), [tasks]);
+  const [items, setItems] = useSyncedState(tasks);
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
   if (items.length === 0) {

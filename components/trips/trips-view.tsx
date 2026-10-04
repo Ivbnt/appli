@@ -2,13 +2,13 @@
 
 import { Plane, Plus } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { daysUntil, formatDayRange, relativeDay, todayISO } from "@/lib/dates";
+import { useSearchParamIntent } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import type { TripSummary } from "@/server/services/trips";
 import { TripForm } from "./trip-form";
@@ -48,19 +48,11 @@ function TripCard({ trip, large }: { trip: TripSummary; large?: boolean }) {
 }
 
 export function TripsView({ trips }: { trips: TripSummary[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const reduce = useReducedMotion();
   const [creating, setCreating] = React.useState(false);
   const today = todayISO();
 
-  React.useEffect(() => {
-    if (searchParams.get("new")) {
-      setCreating(true);
-      router.replace(pathname, { scroll: false });
-    }
-  }, [searchParams, pathname, router]);
+  useSearchParamIntent(["new"], () => setCreating(true));
 
   const upcoming = trips.filter((t) => t.endDate >= today).sort((a, b) => a.startDate.localeCompare(b.startDate));
   const past = trips.filter((t) => t.endDate < today);

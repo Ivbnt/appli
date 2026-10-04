@@ -1,0 +1,68 @@
+# Lancement : docker compose up --build
+# Puis ouvrez http://localhost:3000
+#
+# Services :
+#  - db      : PostgreSQL 17
+#  - migrate : applique les migrations SQL puis s'arrête
+#  - app     : l'application Next.js
+#  - worker  : rappels par e-mail, suppression différée des fichiers, nettoyage
+
+x-app: &app
+  build: .
+  image: appli:latest
+  env_file:
+    - path: .env
+      required: false
+  environment: &app-env
+    DATABASE_URL: postgresql://${POSTGRES_USER:-appli}:${POSTGRES_PASSWORD:-appli}@db:5432/${POSTGRES_DB:-appli}
+    APP_URL: ${APP_URL:-http://localhost:3000}
+  volumes:
+    - storage:/app/storage
+    - data:/app/data
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-appli}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-appli}
+      POSTGRES_DB: ${POSTGRES_DB:-appli}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["node", "dist/migrate.mjs"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    <<: *app
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker.mjs"]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  storage:
+  data:

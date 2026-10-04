@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
 import { Spinner } from "@/components/ui/spinner";
 import type { MovieStatus } from "@/lib/domain";
+import { useOnChange } from "@/lib/hooks";
 import { addManualMovieAction, addMovieAction } from "@/server/actions/movies";
 import type { Movie } from "@/server/services/movies";
 import { MoviePoster } from "./movie-poster";
@@ -34,53 +35,50 @@ export function AddMovie({
   const [mode, setMode] = React.useState<"search" | "manual">(apiAvailable ? "search" : "manual");
   const [status, setStatus] = React.useState<MovieStatus>(defaultStatus);
   const [query, setQuery] = React.useState("");
-  const [results, setResults] = React.useState<Result[]>([]);
-  const [searching, setSearching] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [response, setResponse] = React.useState<{ term: string; results: Result[]; error: string | null } | null>(null);
   const [adding, setAdding] = React.useState<string | null>(null);
   const [manual, setManual] = React.useState({ title: "", year: "", genres: "", runtime: "", overview: "" });
   const [manualErrors, setManualErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (open) {
-      setStatus(defaultStatus);
-      setQuery("");
-      setResults([]);
-      setError(null);
-      setManual({ title: "", year: "", genres: "", runtime: "", overview: "" });
-      setManualErrors({});
-    }
-  }, [open, defaultStatus]);
+  useOnChange(open, (isOpen) => {
+    if (!isOpen) return;
+    setStatus(defaultStatus);
+    setQuery("");
+    setResponse(null);
+    setManual({ title: "", year: "", genres: "", runtime: "", overview: "" });
+    setManualErrors({});
+  });
+
+  const term = query.trim();
+  const enabled = mode === "search" && term.length >= 2;
+  const current = enabled && response?.term === term ? response : null;
+  const searching = enabled && !current;
+  const results = current?.results ?? [];
+  const error = current?.error ?? null;
 
   React.useEffect(() => {
-    if (mode !== "search") return;
-    const term = query.trim();
-    if (term.length < 2) return setResults([]);
+    if (!enabled) return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
-      setSearching(true);
       try {
-        const response = await fetch(`/api/movies/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
-        const data = (await response.json()) as { results?: Result[]; error?: string; unavailable?: boolean };
-        if (!response.ok) {
-          setError(data.error ?? "Recherche indisponible.");
+        const res = await fetch(`/api/movies/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        const data = (await res.json()) as { results?: Result[]; error?: string; unavailable?: boolean };
+        if (!res.ok) {
+          setResponse({ term, results: [], error: data.error ?? "Recherche indisponible." });
           if (data.unavailable) setMode("manual");
         } else {
-          setError(null);
-          setResults(data.results ?? []);
+          setResponse({ term, results: data.results ?? [], error: null });
         }
       } catch {
-        if (!controller.signal.aborted) setError("Recherche indisponible.");
-      } finally {
-        if (!controller.signal.aborted) setSearching(false);
+        if (!controller.signal.aborted) setResponse({ term, results: [], error: "Recherche indisponible." });
       }
     }, 300);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [query, mode]);
+  }, [term, enabled]);
 
   const add = async (result: Result) => {
     setAdding(result.externalId);

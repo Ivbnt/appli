@@ -1,7 +1,6 @@
 "use client";
 
 import { Archive, CheckSquare, Columns3, List, Plus, Search, SlidersHorizontal, X } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { useMembers, useShell } from "@/components/layout/shell-context";
@@ -12,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import type { TaskStatus } from "@/lib/domain";
+import { useSearchParamIntent, useSyncedState } from "@/lib/hooks";
 import { archiveCompletedAction, createTaskAction, moveTaskAction, setTaskDoneAction } from "@/server/actions/tasks";
 import { TaskBoard } from "./task-board";
 import { TaskEditor } from "./task-editor";
@@ -44,14 +44,10 @@ function sortTasks(tasks: Task[], sort: TaskSort): Task[] {
 }
 
 export function TasksView({ initialTasks, categories }: { initialTasks: Task[]; categories: TaskCategory[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { user } = useShell();
   const members = useMembers();
 
-  const [tasks, setTasks] = React.useState(initialTasks);
-  React.useEffect(() => setTasks(initialTasks), [initialTasks]);
+  const [tasks, setTasks] = useSyncedState(initialTasks);
 
   const [view, setView] = React.useState<"board" | "list">("board");
   const [sort, setSort] = React.useState<TaskSort>("manual");
@@ -64,17 +60,12 @@ export function TasksView({ initialTasks, categories }: { initialTasks: Task[]; 
   const partner = members.find((m) => m.id !== user.id);
 
   // Ouverture depuis la recherche globale (?task=…) ou une action rapide (?new=1).
-  React.useEffect(() => {
-    const taskId = searchParams.get("task");
-    const isNew = searchParams.get("new");
-    if (taskId) {
-      const task = initialTasks.find((t) => t.id === taskId);
-      if (task) setEditor({ open: true, task });
-    } else if (isNew) {
-      setEditor({ open: true, task: null });
-    }
-    if (taskId || isNew) router.replace(pathname, { scroll: false });
-  }, [searchParams, initialTasks, pathname, router]);
+  useSearchParamIntent(["task", "new"], (params) => {
+    const taskId = params.get("task");
+    const task = taskId ? initialTasks.find((t) => t.id === taskId) : null;
+    if (task) setEditor({ open: true, task });
+    else if (params.get("new")) setEditor({ open: true, task: null });
+  });
 
   const visible = React.useMemo(() => {
     const q = normalize(filters.query.trim());

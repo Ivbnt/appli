@@ -10,23 +10,24 @@ import { IMAGE_ACCEPT, UploadPanel, usePhotoUploader } from "./use-uploader";
 
 /** Photos rattachées à un lieu ou un voyage, avec import direct. */
 export function PhotoStrip({ links, title = "Photos" }: { links: PhotoLinks; title?: string }) {
-  const [photos, setPhotos] = React.useState<Photo[] | null>(null);
+  const [loaded, setLoaded] = React.useState<{ key: string; photos: Photo[] } | null>(null);
   const [lightbox, setLightbox] = React.useState<number | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
-  const key = JSON.stringify(links);
+  const key = new URLSearchParams(Object.entries(links).filter(([, v]) => v) as [string, string][]).toString();
+  // Photos du lieu ou du voyage courant (null pendant le chargement).
+  const photos = loaded?.key === key ? loaded.photos : null;
+  const setPhotos = (update: (current: Photo[] | null) => Photo[] | null) =>
+    setLoaded((current) => ({ key, photos: update(current?.key === key ? current.photos : null) ?? [] }));
 
   React.useEffect(() => {
     let cancelled = false;
-    setPhotos(null);
-    const params = new URLSearchParams(Object.entries(links).filter(([, v]) => v) as [string, string][]);
-    fetch(`/api/photos?${params}`)
+    fetch(`/api/photos?${key}`)
       .then((r) => r.json() as Promise<{ photos: Photo[] }>)
-      .then((data) => !cancelled && setPhotos(data.photos))
-      .catch(() => !cancelled && setPhotos([]));
+      .then((data) => !cancelled && setLoaded({ key, photos: data.photos }))
+      .catch(() => !cancelled && setLoaded({ key, photos: [] }));
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépend du contenu de `links`
   }, [key]);
 
   const { uploads, addFiles, clear } = usePhotoUploader(links, (photo) => setPhotos((current) => [photo, ...(current ?? [])]));

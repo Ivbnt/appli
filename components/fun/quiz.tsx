@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, FormError } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { useSyncedState } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { addQuizQuestionAction, answerQuestionAction, createQuizAction, deleteQuestionAction, deleteQuizAction } from "@/server/actions/fun";
 import type { QuestionView, QuizSummary } from "@/server/services/fun";
@@ -159,8 +160,7 @@ export function QuizPlay({ quiz }: { quiz: { id: string; title: string; descript
   const reduce = useReducedMotion();
   const { user } = useShell();
   const partner = useMembers().find((m) => m.id !== user.id);
-  const [questions, setQuestions] = React.useState(quiz.questions);
-  React.useEffect(() => setQuestions(quiz.questions), [quiz.questions]);
+  const [questions, setQuestions] = useSyncedState(quiz.questions);
   const [pending, startTransition] = React.useTransition();
 
   const pendingIndex = questions.findIndex((q) => q.myAnswer === null);

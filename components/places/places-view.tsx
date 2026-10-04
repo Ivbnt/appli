@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, ExternalLink, Map as MapIcon, MapPin, Move, Pencil, Plus, Search, List } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Marker, type MapRef } from "react-map-gl/maplibre";
 import { toast } from "sonner";
@@ -13,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { formatDay } from "@/lib/dates";
+import { useSearchParamIntent, useSyncedState } from "@/lib/hooks";
 import { PLACE_CATEGORIES, PLACE_CATEGORY_VALUES, type PlaceCategory } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { movePlaceAction } from "@/server/actions/places";
@@ -37,12 +37,8 @@ export function PlacesView({
   styles: MapStyles;
   trips: TripOption[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const mapRef = React.useRef<MapRef>(null);
-  const [places, setPlaces] = React.useState(initialPlaces);
-  React.useEffect(() => setPlaces(initialPlaces), [initialPlaces]);
+  const [places, setPlaces] = useSyncedState(initialPlaces);
 
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [category, setCategory] = React.useState<PlaceCategory | "all">("all");
@@ -51,6 +47,8 @@ export function PlacesView({
   const [moving, setMoving] = React.useState<{ id: string; latitude: number; longitude: number } | null>(null);
   const [editor, setEditor] = React.useState<{ open: boolean; place: Place | null }>({ open: false, place: null });
   const [mobilePane, setMobilePane] = React.useState<"map" | "list">("map");
+  // Centre courant de la carte : position de départ de l'éditeur pour un nouveau lieu.
+  const [mapCenter, setMapCenter] = React.useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
 
   const selected = places.find((p) => p.id === selectedId) ?? null;
 
@@ -108,15 +106,17 @@ export function PlacesView({
   }, []);
 
   // Ouverture depuis la recherche globale (?place=…) ou une action rapide (?new=1).
-  React.useEffect(() => {
-    const placeId = searchParams.get("place");
-    if (placeId) {
-      const place = initialPlaces.find((p) => p.id === placeId);
+  useSearchParamIntent(
+    ["place", "new"],
+    (params) => {
+      if (params.get("new")) setEditor({ open: true, place: null });
+    },
+    (params) => {
+      const place = initialPlaces.find((p) => p.id === params.get("place"));
+      // Laisse la carte s'initialiser avant de centrer sur le lieu.
       if (place) window.setTimeout(() => select(place), 300);
-    }
-    if (searchParams.get("new")) setEditor({ open: true, place: null });
-    if (placeId || searchParams.get("new")) router.replace(pathname, { scroll: false });
-  }, [searchParams, initialPlaces, pathname, router, select]);
+    },
+  );
 
   const upsert = (place: Place) => {
     setPlaces((current) => (current.some((p) => p.id === place.id) ? current.map((p) => (p.id === place.id ? place : p)) : [place, ...current]));
@@ -303,6 +303,7 @@ export function PlacesView({
           className="h-full md:rounded-r-2xl"
           initialViewState={initialView}
           onLoad={() => fitAll(initialPlaces)}
+          onMoveEnd={(e) => setMapCenter({ latitude: e.viewState.latitude, longitude: e.viewState.longitude, zoom: e.viewState.zoom })}
           onClick={() => !moving && setSelectedId(null)}
         >
           {visible.map((place) => {
@@ -363,7 +364,7 @@ export function PlacesView({
         place={editor.place}
         styles={styles}
         trips={trips}
-        center={mapRef.current ? { latitude: mapRef.current.getCenter().lat, longitude: mapRef.current.getCenter().lng, zoom: Math.max(mapRef.current.getZoom(), 10) } : initialView}
+        center={mapCenter ? { ...mapCenter, zoom: Math.max(mapCenter.zoom, 10) } : initialView}
         onSaved={upsert}
         onDeleted={(id) => {
           setPlaces((current) => current.filter((p) => p.id !== id));

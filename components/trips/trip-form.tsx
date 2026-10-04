@@ -12,6 +12,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { addDays, todayISO } from "@/lib/dates";
+import { useOnChange } from "@/lib/hooks";
 import { createTripAction, deleteTripAction, updateTripAction } from "@/server/actions/trips";
 import type { TripSummary } from "@/server/services/trips";
 
@@ -38,8 +39,8 @@ export function TripForm({ open, onOpenChange, trip }: { open: boolean; onOpenCh
   const [pending, startTransition] = React.useTransition();
   const fileInput = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
+  useOnChange(open ? trip ?? "new" : null, (key) => {
+    if (key === null) return;
     setTitle(trip?.title ?? "");
     setDestination(trip?.destination ?? "");
     setCoords(trip?.latitude != null && trip.longitude != null ? { latitude: trip.latitude, longitude: trip.longitude } : null);
@@ -49,7 +50,7 @@ export function TripForm({ open, onOpenChange, trip }: { open: boolean; onOpenCh
     setCover(null);
     setErrors({});
     setError(null);
-  }, [open, trip]);
+  });
 
   React.useEffect(
     () => () => {

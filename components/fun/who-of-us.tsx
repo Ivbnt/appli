@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { useSyncedState } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { addWhoQuestionAction, answerQuestionAction, deleteQuestionAction } from "@/server/actions/fun";
 import type { QuestionView } from "@/server/services/fun";
@@ -21,8 +22,7 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
   const reduce = useReducedMotion();
   const { user } = useShell();
   const members = useMembers();
-  const [questions, setQuestions] = React.useState(initial);
-  React.useEffect(() => setQuestions(initial), [initial]);
+  const [questions, setQuestions] = useSyncedState(initial);
   const [prompt, setPrompt] = React.useState("");
   const [pending, startTransition] = React.useTransition();
 

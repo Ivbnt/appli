@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { AcceptInvitationForm } from "@/components/workspace/onboarding-forms";
 import { needsEmailVerification, resolveWorkspaceContext } from "@/server/auth/guards";
 import { getCurrentSession } from "@/server/auth/session";

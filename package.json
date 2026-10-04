@@ -14,7 +14,10 @@
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
     "db:seed": "node scripts/build-node.mjs && node --env-file-if-exists=.env dist/seed.mjs",
     "build:node": "node scripts/build-node.mjs",
-    "worker": "node scripts/build-node.mjs && node --env-file-if-exists=.env dist/worker.mjs"
+    "worker": "node scripts/build-node.mjs && node --env-file-if-exists=.env dist/worker.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
