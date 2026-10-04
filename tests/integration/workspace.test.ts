@@ -4,6 +4,7 @@ import { db, sql } from "@/server/db";
 import { env } from "@/server/env";
 import { ensureAccounts, isConfiguredEmail } from "@/server/services/accounts";
 import { evaluateBadges } from "@/server/services/badges";
+import { unlockAlma } from "@/server/services/easter-egg";
 import { createTrip } from "@/server/services/trips";
 import { createCouple, testAccount } from "./helpers";
 
@@ -104,5 +105,16 @@ describe("mot de passe commun", () => {
       config.APP_PASSWORD = original;
       await ensureAccounts([account]);
     }
+  });
+});
+
+describe("easter egg A·L·M·A", () => {
+  it("ajoute la date à l'agenda une seule fois par espace", async () => {
+    const { user, workspaceId } = await createCouple("Alice");
+    expect(await unlockAlma(workspaceId, user.id)).toEqual({ added: true });
+    expect(await unlockAlma(workspaceId, user.id)).toEqual({ added: false });
+    const events = await db.many<{ title: string; recurrence: string; type: string }>(sql`
+      SELECT title, recurrence, type FROM calendar_events WHERE workspace_id = ${workspaceId}`);
+    expect(events).toEqual([{ title: "Alma ✨", recurrence: "yearly", type: "important_date" }]);
   });
 });
