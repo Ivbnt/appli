@@ -1,48 +1,29 @@
 /**
- * Données de démonstration (entièrement fictives).
+ * Données de démonstration (entièrement fictives), ajoutées à l'espace des comptes
+ * déclarés dans ACCOUNTS.
  *
- *   npm run db:seed            → crée les comptes de démo s'ils n'existent pas
- *   npm run db:seed -- --force → supprime puis recrée l'espace de démo
+ *   npm run db:seed                         → remplit l'espace s'il est encore vide
+ *   npm run db:seed -- --force              → efface d'abord le contenu de l'espace
+ *   npm run db:seed -- --password <motdepasse> → définit aussi ce mot de passe pour les deux comptes
  *
- * Comptes : lea@exemple.fr et hugo@exemple.fr — mot de passe : motdepasse-demo
+ * À réserver à un essai : --force supprime définitivement le contenu existant.
  */
 import sharp from "sharp";
 import { addDays, fromLocalInput, todayISO } from "@/lib/dates";
 import { hashPassword } from "@/server/auth/password";
 import { db, pool, sql } from "@/server/db";
 import { processFileDeletions } from "@/server/storage";
+import { ensureAccounts } from "@/server/services/accounts";
 import { evaluateBadges } from "@/server/services/badges";
 import { createEvent } from "@/server/services/calendar";
-import { collectWorkspaceFileKeys } from "@/server/services/files";
 import { addManualMovie, reviewMovie } from "@/server/services/movies";
 import { createAlbum, saveMilestone, uploadPhoto } from "@/server/services/photos";
 import { createPlace } from "@/server/services/places";
 import { createTask, listCategories } from "@/server/services/tasks";
 import { createReservation, createTrip } from "@/server/services/trips";
-import { createWorkspace } from "@/server/services/workspace";
-import { queueFileDeletion } from "@/server/storage";
-
-const PASSWORD = "motdepasse-demo";
-const USERS = [
-  { name: "Léa", email: "lea@exemple.fr" },
-  { name: "Hugo", email: "hugo@exemple.fr" },
-];
+import { deleteWorkspaceContent } from "@/server/services/workspace";
 
 const today = todayISO();
-
-async function resetDemo() {
-  const workspaces = await db.many<{ workspaceId: string }>(sql`
-    SELECT DISTINCT m.workspace_id FROM workspace_members m JOIN users u ON u.id = m.user_id
-    WHERE u.email = ANY(${USERS.map((u) => u.email)}::text[])`);
-  for (const { workspaceId } of workspaces) {
-    await db.tx(async (tx) => {
-      await queueFileDeletion(await collectWorkspaceFileKeys(tx, workspaceId), tx);
-      await tx.exec(sql`DELETE FROM workspaces WHERE id = ${workspaceId}`);
-    });
-  }
-  await db.exec(sql`DELETE FROM users WHERE email = ANY(${USERS.map((u) => u.email)}::text[])`);
-  await processFileDeletions(10_000);
-}
 
 /** Image abstraite générée (dégradé doux) : aucune vraie photo n'est utilisée. */
 async function abstractImage(seed: number) {
@@ -63,26 +44,41 @@ async function abstractImage(seed: number) {
   return sharp(Buffer.from(svg)).jpeg({ quality: 86 }).toBuffer();
 }
 
+const CONTENT_TABLES = ["locations", "tasks", "calendar_events", "photos", "movies", "trips", "challenges", "quizzes"];
+
+function argument(name: string) {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+
 async function main() {
   const force = process.argv.includes("--force");
-  const existing = await db.count(sql`SELECT count(*) FROM users WHERE email = ANY(${USERS.map((u) => u.email)}::text[])`);
-  if (existing > 0 && !force) {
-    console.info("Les comptes de démonstration existent déjà (utilisez --force pour les recréer).");
-    return;
-  }
-  if (force) await resetDemo();
+  const password = argument("--password");
+  if (password !== undefined && password.length < 10) throw new Error("--password : 10 caractères minimum.");
 
-  console.info("→ Comptes et espace");
-  const passwordHash = await hashPassword(PASSWORD);
-  const [lea, hugo] = await Promise.all(
-    USERS.map((u) =>
-      db.one<{ id: string; name: string }>(sql`
-        INSERT INTO users (name, email, password_hash, email_verified_at) VALUES (${u.name}, ${u.email}, ${passwordHash}, now())
-        RETURNING id, name`),
-    ),
-  );
-  const { id: workspaceId } = await createWorkspace(lea!.id, { name: "Léa & Hugo", togetherSince: "2021-06-12" });
-  await db.exec(sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${workspaceId}, ${hugo!.id}, 'member')`);
+  const { workspaceId } = await ensureAccounts();
+  const users = await db.many<{ id: string; name: string; email: string }>(sql`
+    SELECT u.id, u.name, u.email FROM workspace_members m JOIN users u ON u.id = m.user_id
+    WHERE m.workspace_id = ${workspaceId} ORDER BY m.joined_at`);
+  const [lea, hugo = lea] = users;
+  const partnerName = hugo!.name.split(/\s+/)[0];
+
+  if (password) {
+    await db.exec(sql`UPDATE users SET password_hash = ${await hashPassword(password)} WHERE id = ANY(${users.map((u) => u.id)}::uuid[])`);
+    console.info("→ Mot de passe défini pour les comptes");
+  }
+
+  const counts = await Promise.all(CONTENT_TABLES.map((table) => db.count(sql`SELECT count(*) FROM ${sql.raw(table)} WHERE workspace_id = ${workspaceId}`)));
+  if (counts.some((count) => count > 0)) {
+    if (!force) {
+      console.info("L'espace contient déjà des données : rien n'a été ajouté (--force efface d'abord tout le contenu).");
+      return;
+    }
+    console.info("→ Effacement du contenu existant");
+    await deleteWorkspaceContent(workspaceId, lea!.id);
+    await processFileDeletions(10_000);
+  }
+  await db.exec(sql`UPDATE workspaces SET together_since = COALESCE(together_since, '2021-06-12') WHERE id = ${workspaceId}`);
 
   console.info("→ Lieux");
   const places = [
@@ -133,7 +129,7 @@ async function main() {
 
   console.info("→ Événements");
   const events = [
-    { title: "Anniversaire de Hugo", type: "birthday", allDay: true, startDay: addDays(today, 9).replace(/^\d{4}/, "1994"), recurrence: "yearly", reminderMinutes: 7 * 1440 },
+    { title: `Anniversaire de ${partnerName}`, type: "birthday", allDay: true, startDay: addDays(today, 9).replace(/^\d{4}/, "1994"), recurrence: "yearly", reminderMinutes: 7 * 1440 },
     { title: "Notre anniversaire", type: "important_date", allDay: true, startDay: "2021-06-12", recurrence: "yearly", reminderMinutes: 7 * 1440 },
     { title: "Dîner chez Camille et Théo", type: "appointment", allDay: false, startDay: addDays(today, 2), startTime: "20:00", location: "Montreuil", reminderMinutes: 1440 },
     { title: "Concert au Trianon", type: "concert", allDay: false, startDay: addDays(today, 16), startTime: "20:30", location: "80 Bd de Rochechouart, Paris", reminderMinutes: 1440 },
@@ -235,7 +231,7 @@ async function main() {
   await db.exec(sql`UPDATE activities SET done_count = 1, last_done_at = now() WHERE workspace_id = ${workspaceId} AND label IN ('Cinéma', 'Balade', 'Musée')`);
 
   await evaluateBadges(workspaceId);
-  console.info(`\n✓ Données de démonstration créées.\n  Connexion : ${USERS.map((u) => u.email).join(" ou ")} — mot de passe : ${PASSWORD}`);
+  console.info(`\n✓ Données de démonstration ajoutées à l'espace de ${users.map((u) => u.name).join(" et ")}.`);
 }
 
 main()

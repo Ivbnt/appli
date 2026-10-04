@@ -11,6 +11,7 @@ import {
 } from "@/lib/validation/trips";
 import { workspaceAction } from "../safe-action";
 import { evaluateBadges } from "../services/badges";
+import { notifyTripCreated } from "../services/notifications";
 import * as trips from "../services/trips";
 
 const refresh = () => {
@@ -21,6 +22,7 @@ const refresh = () => {
 
 export const createTripAction = workspaceAction(createTripSchema, async (input, ctx) => {
   const trip = await trips.createTrip(ctx.workspace.id, ctx.user.id, input);
+  notifyTripCreated(ctx, { id: trip.id, ...input });
   await evaluateBadges(ctx.workspace.id);
   refresh();
   return trip;

@@ -10,7 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, FormSuccess } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { changeEmailAction, changePasswordAction, removeAvatarAction, updateProfileAction } from "@/server/actions/account";
+import { changePasswordAction, removeAvatarAction, updateProfileAction } from "@/server/actions/account";
 
 export function ProfileForm({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   const router = useRouter();
@@ -74,27 +74,6 @@ export function ProfileForm({ name, avatarUrl }: { name: string; avatarUrl: stri
         </Button>
       </form>
     </div>
-  );
-}
-
-export function EmailForm({ email }: { email: string }) {
-  const [state, action, pending] = useActionState(changeEmailAction, null);
-  return (
-    <form action={action} className="flex max-w-md flex-col gap-4">
-      <FormError message={state?.error} />
-      <p className="text-sm text-muted">
-        Adresse actuelle : <span className="font-medium text-foreground">{email}</span>. Un lien de confirmation sera envoyé à la nouvelle adresse.
-      </p>
-      <Field label="Nouvelle adresse" htmlFor="new-email" error={state?.fieldErrors?.email}>
-        <Input name="email" type="email" autoComplete="email" required />
-      </Field>
-      <Field label="Mot de passe actuel" htmlFor="email-password" error={state?.fieldErrors?.password}>
-        <PasswordInput name="password" autoComplete="current-password" required />
-      </Field>
-      <Button type="submit" variant="secondary" loading={pending} className="self-start">
-        Changer d&apos;adresse
-      </Button>
-    </form>
   );
 }
 

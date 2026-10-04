@@ -1,20 +1,18 @@
 "use client";
 
-import { Download, Monitor, Moon, Sun } from "lucide-react";
+import { Download, Mail, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import * as React from "react";
-import { useActionState } from "react";
 import { toast } from "sonner";
-import { PasswordInput } from "@/components/auth/password-input";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Field, FormError } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { REMINDER_OPTIONS } from "@/lib/domain";
 import { useMounted } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { deleteAccountAction, updateNotificationsAction, updateThemeAction } from "@/server/actions/account";
+import { sendTestEmailAction, updateNotificationsAction, updateThemeAction } from "@/server/actions/account";
 import { deleteWorkspaceContentAction } from "@/server/actions/workspace";
 import { SettingsSection } from "./settings-nav";
 
@@ -61,8 +59,8 @@ export function NotificationSettings({
       <SettingsSection title="E-mails">
         <div className="divide-y divide-border">
           <ToggleRow
-            title="Nouvelles de l'espace"
-            description="Par exemple quand votre partenaire rejoint l'espace."
+            title="Nouvelles de votre partenaire"
+            description="Quand votre partenaire vous confie une tâche, ajoute un événement au calendrier ou crée un voyage."
             checked={prefs.emailNotifications}
             onChange={(v) => update({ emailNotifications: v })}
           />
@@ -74,6 +72,9 @@ export function NotificationSettings({
           />
         </div>
       </SettingsSection>
+      <SettingsSection title="Tester l'envoi" description="Envoie un e-mail à votre adresse pour vérifier la configuration.">
+        <TestEmailButton />
+      </SettingsSection>
       <SettingsSection title="Rappel par défaut" description="Proposé à la création d'un événement, et utilisé pour les réservations.">
         <div className="max-w-xs">
           <Select
@@ -84,6 +85,27 @@ export function NotificationSettings({
         </div>
       </SettingsSection>
     </div>
+  );
+}
+
+function TestEmailButton() {
+  const [pending, startTransition] = React.useTransition();
+  return (
+    <Button
+      variant="secondary"
+      loading={pending}
+      className="self-start"
+      onClick={() =>
+        startTransition(async () => {
+          const result = await sendTestEmailAction();
+          if (!result.ok) return void toast.error(result.error);
+          if (result.data.delivered) toast.success(`E-mail envoyé à ${result.data.to}`, { description: "Pensez à regarder dans les indésirables." });
+          else toast.info("E-mail écrit dans les journaux du serveur", { description: "EMAIL_PROVIDER=console : rien n'est réellement envoyé." });
+        })
+      }
+    >
+      <Mail /> Envoyer un e-mail de test
+    </Button>
   );
 }
 
@@ -152,7 +174,6 @@ export function AppearanceSettings() {
 export function PrivacySettings() {
   const [confirmation, setConfirmation] = React.useState("");
   const [pending, startTransition] = React.useTransition();
-  const [deleteState, deleteAction, deleting] = useActionState(deleteAccountAction, null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -184,24 +205,6 @@ export function PrivacySettings() {
         </form>
       </SettingsSection>
 
-      <SettingsSection
-        title="Supprimer mon compte"
-        description="Votre compte est supprimé définitivement. Si vous êtes seul·e dans l'espace, il est supprimé avec toutes ses données ; sinon, les données partagées restent à votre partenaire."
-        danger
-      >
-        <form action={deleteAction} className="flex max-w-md flex-col gap-3">
-          <FormError message={deleteState?.error && !deleteState.fieldErrors ? deleteState.error : null} />
-          <Field label="Mot de passe" htmlFor="delete-password" error={deleteState?.fieldErrors?.password}>
-            <PasswordInput name="password" autoComplete="current-password" required />
-          </Field>
-          <Field label="Tapez SUPPRIMER pour confirmer" htmlFor="delete-confirmation" error={deleteState?.fieldErrors?.confirmation}>
-            <Input name="confirmation" autoComplete="off" required />
-          </Field>
-          <Button type="submit" variant="danger" loading={deleting} className="self-start">
-            Supprimer définitivement mon compte
-          </Button>
-        </form>
-      </SettingsSection>
     </div>
   );
 }

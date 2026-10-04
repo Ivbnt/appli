@@ -1,6 +1,7 @@
 import "server-only";
 import { readFileSync } from "node:fs";
 import { z } from "zod";
+import { parseAccounts } from "@/lib/accounts";
 
 const booleanish = z
   .enum(["true", "false", "1", "0", "yes", "no"])
@@ -21,8 +22,16 @@ const schema = z
       .min(32, "AUTH_SECRET doit contenir au moins 32 caractères (openssl rand -base64 48)"),
     APP_URL: z.url().default("http://localhost:3000"),
     APP_TIMEZONE: z.string().default("Europe/Paris"),
-    REGISTRATION_MODE: z.enum(["open", "invite-only"]).default("open"),
-    REQUIRE_EMAIL_VERIFICATION: booleanish.default(true),
+    ACCOUNTS: z
+      .string({ error: "ACCOUNTS est requis : les deux comptes autorisés, par exemple « Prénom Nom <adresse@exemple.fr>, … »" })
+      .transform((value, ctx) => {
+        try {
+          return parseAccounts(value);
+        } catch (error) {
+          ctx.addIssue({ code: "custom", message: error instanceof Error ? error.message : String(error) });
+          return z.NEVER;
+        }
+      }),
     MAX_UPLOAD_MB: z.coerce.number().int().positive().max(200).default(25),
 
     EMAIL_PROVIDER: z.enum(["console", "smtp", "resend"]).default("console"),

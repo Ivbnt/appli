@@ -4,7 +4,7 @@ const SESSION_COOKIES = ["__Host-appli_session", "appli_session"];
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
 /** Pages accessibles sans être connecté. */
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email", "/invite"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
 
 const isPublic = (pathname: string) =>
   PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));

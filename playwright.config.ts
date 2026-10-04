@@ -25,5 +25,11 @@ export default defineConfig({
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
-    : { command: `npm run dev -- -p ${port}`, port, reuseExistingServer: true, timeout: 120_000 },
+    : {
+        command: `npm run dev -- -p ${port}`,
+        port,
+        reuseExistingServer: true,
+        timeout: 120_000,
+        env: { ACCOUNTS: process.env.E2E_ACCOUNTS ?? "Alice Martin <alice@exemple.fr>, Bruno Petit <bruno@exemple.fr>" },
+      },
 });

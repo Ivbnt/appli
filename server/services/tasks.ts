@@ -82,6 +82,13 @@ export async function createTask(workspaceId: string, userId: string, input: Tas
   });
 }
 
+/** Personne à qui la tâche est assignée (pour ne prévenir qu'en cas de changement). */
+export async function getAssignee(workspaceId: string, taskId: string): Promise<string | null> {
+  const row = await db.maybe<{ assignedToId: string | null }>(sql`
+    SELECT assigned_to_id FROM tasks WHERE workspace_id = ${workspaceId} AND id = ${taskId}`);
+  return row?.assignedToId ?? null;
+}
+
 export async function updateTask(workspaceId: string, taskId: string, input: TaskInput & { status: TaskStatus }) {
   return db.tx(async (tx) => {
     await assertCategory(tx, workspaceId, input.categoryId ?? null);

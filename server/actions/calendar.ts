@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createEventSchema, eventIdSchema, updateEventSchema } from "@/lib/validation/events";
 import { workspaceAction } from "../safe-action";
 import * as calendar from "../services/calendar";
+import { notifyEventCreated } from "../services/notifications";
 
 const refresh = () => {
   revalidatePath("/calendar");
@@ -12,6 +13,7 @@ const refresh = () => {
 
 export const createEventAction = workspaceAction(createEventSchema, async (input, ctx) => {
   const event = await calendar.createEvent(ctx.workspace.id, ctx.user.id, input);
+  notifyEventCreated(ctx, event);
   refresh();
   return { id: event.id };
 });

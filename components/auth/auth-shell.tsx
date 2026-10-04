@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { APP_TAGLINE } from "@/lib/brand";
 
-/** Mise en page des écrans hors application : connexion, invitation, accueil. */
+/** Mise en page des écrans hors application : connexion et choix du mot de passe. */
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col px-4 pt-safe">
