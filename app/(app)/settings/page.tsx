@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PasswordForm, ProfileForm } from "@/components/settings/account-forms";
+import { ProfileForm } from "@/components/settings/account-forms";
 import { SettingsSection } from "@/components/settings/settings-nav";
 import { requireWorkspace } from "@/server/auth/guards";
 import { fileUrl } from "@/server/storage";
@@ -15,9 +15,6 @@ export default async function AccountSettingsPage() {
       </SettingsSection>
       <SettingsSection title="Adresse e-mail" description="Fixée par la configuration de l'application (variable ACCOUNTS).">
         <p className="text-sm font-medium">{ctx.user.email}</p>
-      </SettingsSection>
-      <SettingsSection title="Mot de passe" description="Changer de mot de passe déconnecte vos autres appareils.">
-        <PasswordForm />
       </SettingsSection>
     </div>
   );

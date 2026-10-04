@@ -9,11 +9,6 @@ export const emailSchema = z
   .max(254, "Adresse e-mail trop longue.")
   .pipe(z.email({ error: "Adresse e-mail invalide." }));
 
-export const passwordSchema = z
-  .string({ error: "Mot de passe requis." })
-  .min(10, "10 caractères minimum.")
-  .max(128, "128 caractères maximum.");
-
 export const nameSchema = z.string().trim().min(1, "Ce champ est requis.").max(60, "60 caractères maximum.");
 
 export const requiredText = (max: number, message = "Ce champ est requis.") =>

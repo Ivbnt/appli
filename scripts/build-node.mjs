@@ -17,7 +17,7 @@ await build({
   sourcemap: true,
   alias: { "@": root, "server-only": path.join(root, "scripts/empty.mjs") },
   // Modules natifs ou volumineux chargés depuis node_modules à l'exécution.
-  external: ["sharp", "@node-rs/argon2", "pg-native"],
+  external: ["sharp", "pg-native"],
   banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   logLevel: "info",
 });

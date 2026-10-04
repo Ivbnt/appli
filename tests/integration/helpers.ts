@@ -8,8 +8,8 @@ const uniqueEmail = (name: string) => `${name.toLowerCase()}-${randomUUID().slic
 export async function createCouple(name: string) {
   return db.tx(async (tx) => {
     const user = await tx.one<{ id: string; name: string; email: string }>(sql`
-      INSERT INTO users (name, email, password_hash, email_verified_at)
-      VALUES (${name}, ${uniqueEmail(name)}, 'x', now())
+      INSERT INTO users (name, email, email_verified_at)
+      VALUES (${name}, ${uniqueEmail(name)}, now())
       RETURNING id, name, email`);
     const workspace = await tx.one<{ id: string }>(sql`INSERT INTO workspaces (name) VALUES (${`Espace de ${name}`}) RETURNING id`);
     await tx.exec(sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${workspace.id}, ${user.id}, 'owner')`);
@@ -20,8 +20,8 @@ export async function createCouple(name: string) {
 
 export async function createUser(name: string) {
   return db.one<{ id: string; name: string; email: string }>(sql`
-    INSERT INTO users (name, email, password_hash, email_verified_at)
-    VALUES (${name}, ${uniqueEmail(name)}, 'x', now())
+    INSERT INTO users (name, email, email_verified_at)
+    VALUES (${name}, ${uniqueEmail(name)}, now())
     RETURNING id, name, email`);
 }
 

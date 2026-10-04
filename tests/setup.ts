@@ -7,3 +7,4 @@ process.env.EMAIL_PROVIDER = "console";
 process.env.STORAGE_DRIVER = "local";
 process.env.STORAGE_LOCAL_DIR = "/tmp/appli-test-storage";
 process.env.ACCOUNTS = "Alice Martin <alice@exemple.fr>, Bruno Petit <bruno@exemple.fr>";
+process.env.APP_PASSWORD = "mot-de-passe-de-test";

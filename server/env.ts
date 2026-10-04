@@ -32,6 +32,7 @@ const schema = z
           return z.NEVER;
         }
       }),
+    APP_PASSWORD: z.string({ error: "APP_PASSWORD est requis : le mot de passe commun aux deux comptes" }).min(1, "APP_PASSWORD ne peut pas être vide"),
     MAX_UPLOAD_MB: z.coerce.number().int().positive().max(200).default(25),
 
     EMAIL_PROVIDER: z.enum(["console", "smtp", "resend"]).default("console"),

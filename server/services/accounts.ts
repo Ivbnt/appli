@@ -1,6 +1,7 @@
 import "server-only";
 import { defaultWorkspaceName, type ConfiguredAccount } from "@/lib/accounts";
-import { db, sql } from "../db";
+import { hashToken } from "../auth/crypto";
+import { db, sql, type Tx } from "../db";
 import { env } from "../env";
 import { seedWorkspaceDefaults } from "./defaults";
 
@@ -15,9 +16,7 @@ export const isConfiguredEmail = (email: string) => configuredAccounts().some((a
  * Crée les comptes déclarés dans ACCOUNTS s'ils n'existent pas encore, puis les réunit
  * dans un même espace. Idempotent : peut être appelé à chaque démarrage.
  *
- * Les comptes sont créés sans mot de passe : chacun choisit le sien via le lien
- * « Première connexion » reçu par e-mail. L'adresse n'a pas à être vérifiée, puisqu'elle
- * est fixée par la configuration et que choisir son mot de passe passe par elle.
+ * Il n'y a pas de mot de passe : la connexion se fait avec l'adresse e-mail seule.
  */
 export async function ensureAccounts(accounts: ConfiguredAccount[] = configuredAccounts()): Promise<{ workspaceId: string }> {
   return db.tx(async (tx) => {
@@ -27,8 +26,8 @@ export async function ensureAccounts(accounts: ConfiguredAccount[] = configuredA
     for (const account of accounts) {
       users.push(
         await tx.one<{ id: string; email: string }>(sql`
-          INSERT INTO users (name, email, password_hash, email_verified_at)
-          VALUES (${account.name}, ${account.email}, NULL, now())
+          INSERT INTO users (name, email, email_verified_at)
+          VALUES (${account.name}, ${account.email}, now())
           ON CONFLICT (email) DO UPDATE SET email_verified_at = COALESCE(users.email_verified_at, now())
           RETURNING id, email`),
       );
@@ -64,8 +63,20 @@ export async function ensureAccounts(accounts: ConfiguredAccount[] = configuredA
     await tx.exec(sql`
       DELETE FROM workspace_members WHERE workspace_id = ${workspaceId} AND NOT (user_id = ANY(${ids}::uuid[]))`);
 
+    await closeSessionsIfPasswordChanged(tx);
     return { workspaceId };
   });
+}
+
+/** Si APP_PASSWORD a changé depuis le dernier démarrage, tous les appareils sont déconnectés. */
+async function closeSessionsIfPasswordChanged(tx: Tx) {
+  const fingerprint = hashToken(`app-password:${env().APP_PASSWORD}`);
+  const previous = await tx.maybe<{ value: string }>(sql`SELECT value FROM app_settings WHERE key = 'password_fingerprint'`);
+  if (previous?.value === fingerprint) return;
+  if (previous) await tx.exec(sql`DELETE FROM sessions`);
+  await tx.exec(sql`
+    INSERT INTO app_settings (key, value) VALUES ('password_fingerprint', ${fingerprint})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`);
 }
 
 let ensured: { key: string; promise: Promise<unknown> } | undefined;

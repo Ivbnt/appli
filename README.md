@@ -26,13 +26,12 @@ Application web privée pour un couple : un espace partagé à deux pour les lie
 
 Prérequis : Docker et Docker Compose v2.
 
-1. Copiez `.env.example` en `.env` et renseignez au minimum les **deux comptes** autorisés :
+1. Copiez `.env.example` en `.env` et renseignez les **deux comptes** autorisés et le **mot de passe commun**. C'est la seule configuration obligatoire :
 
    ```bash
    ACCOUNTS="Prénom Nom <premiere@exemple.fr>, Prénom Nom <seconde@exemple.fr>"
+   APP_PASSWORD=votre-mot-de-passe
    ```
-
-   Pour que les e-mails partent vraiment, configurez aussi l'envoi (voir [E-mail](#e-mail), avec un exemple pour Gmail).
 
 2. Lancez l'application :
 
@@ -47,13 +46,11 @@ L'application démarre sur **http://localhost:3000** :
 - `app` (Next.js) et `worker` (rappels par e-mail) démarrent ensuite ;
 - un secret `AUTH_SECRET` est généré au premier lancement et conservé dans le volume `data`.
 
-### Comptes et première connexion
+### Comptes et connexion
 
-Il n'y a **pas d'inscription**. Seuls les deux comptes déclarés dans `ACCOUNTS` existent : ils sont créés automatiquement, déjà réunis dans le même espace. Aucune autre adresse ne peut se connecter.
+Il n'y a **pas d'inscription**. Seuls les deux comptes déclarés dans `ACCOUNTS` existent : ils sont créés automatiquement, déjà réunis dans le même espace. Pour se connecter, chacun saisit **son adresse e-mail et le mot de passe commun** `APP_PASSWORD`. Aucune autre adresse ne peut entrer, même avec le bon mot de passe.
 
-Pour la première connexion, chacun ouvre la page de connexion, clique sur **« Première connexion ? Choisir mon mot de passe »** et saisit son adresse. Un lien valable une heure arrive par e-mail ; il permet de choisir son mot de passe et ouvre directement l'espace. Le même chemin sert ensuite en cas de mot de passe oublié.
-
-Sans service d'e-mail configuré (`EMAIL_PROVIDER=console`), rien n'est envoyé : le lien est écrit dans les journaux, visibles avec `docker compose logs app`.
+Pour changer de mot de passe, modifiez `APP_PASSWORD` dans `.env`, puis redémarrez (`docker compose up -d`). Tous les appareils connectés sont alors déconnectés. Il n'y a pas de « mot de passe oublié » : le mot de passe est dans `.env`. Aucun e-mail n'est nécessaire pour se connecter.
 
 Le nom affiché et la photo se modifient dans **Paramètres → Compte**. Les adresses, elles, se changent uniquement dans `ACCOUNTS`, puis redémarrez l'application. Changer une adresse crée un nouveau compte, qui rejoint l'espace et retrouve toutes les données partagées ; l'ancienne adresse perd l'accès.
 
@@ -63,7 +60,7 @@ Le nom affiché et la photo se modifient dans **Paramètres → Compte**. Les ad
 docker compose exec app node dist/seed.mjs
 ```
 
-Le seed ajoute des données fictives à l'espace des deux comptes : lieux, tâches, événements, photos, films, voyage, quiz et défis. Il ne fait rien si l'espace contient déjà des données. Avec `--force`, il **efface d'abord tout le contenu** de l'espace : à réserver à un essai. `--password <motdepasse>` définit en plus ce mot de passe pour les deux comptes, ce qui évite le passage par l'e-mail en local.
+Le seed ajoute des données fictives à l'espace des deux comptes : lieux, tâches, événements, photos, films, voyage, quiz et défis. Il ne fait rien si l'espace contient déjà des données. Avec `--force`, il **efface d'abord tout le contenu** de l'espace : à réserver à un essai.
 
 ### Dépannage
 
@@ -106,7 +103,7 @@ cp .env.example .env
 # 3. Installation, migrations, données de démo
 npm install
 npm run db:migrate
-npm run db:seed -- --password motdepasse-local   # facultatif
+npm run db:seed
 
 # 4. Lancement
 npm run dev        # http://localhost:3000
@@ -122,7 +119,7 @@ npm run worker     # dans un autre terminal, pour les rappels par e-mail
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run db:migrate` | Applique les migrations SQL en attente |
-| `npm run db:seed` | Données de démonstration dans l'espace des deux comptes (`-- --force`, `-- --password …`) |
+| `npm run db:seed` | Données de démonstration dans l'espace des deux comptes (`-- --force` pour tout effacer avant) |
 | `npm run worker` | Worker des rappels et du nettoyage des fichiers |
 | `npm test` | Tests unitaires et d'intégration (Vitest) |
 | `npm run test:e2e` | Tests de bout en bout (Playwright) |
@@ -141,6 +138,7 @@ Toutes les variables sont validées au démarrage avec Zod. Une valeur invalide 
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `appli` | Identifiants du conteneur PostgreSQL. |
 | `AUTH_SECRET` | — | Au moins 32 caractères. Sert à signer les URLs de fichiers et à chiffrer les jetons Spotify. Sous Docker, il est généré automatiquement s'il est vide. |
 | `ACCOUNTS` | — | **Obligatoire.** Les deux comptes autorisés : `Prénom Nom <adresse>, Prénom Nom <adresse>`. |
+| `APP_PASSWORD` | — | **Obligatoire.** Mot de passe commun aux deux comptes. |
 | `MAX_UPLOAD_MB` | `25` | Taille maximale d'une photo ou d'un document. |
 | `EMAIL_PROVIDER` | `console` | `console`, `smtp` ou `resend`. |
 | `EMAIL_FROM` | — | Expéditeur, par exemple `Nous <bonjour@exemple.fr>`. |
@@ -210,9 +208,8 @@ Chaque ressource porte un `workspace_id`. Les références entre ressources util
 - `smtp` : renseignez `SMTP_URL` et `EMAIL_FROM`.
 - `resend` : renseignez `EMAIL_API_KEY` et `EMAIL_FROM` (domaine vérifié chez Resend).
 
-L'application envoie :
+Les e-mails sont **facultatifs** : la connexion n'en a pas besoin. Par défaut (`EMAIL_PROVIDER=console`), aucun e-mail ne part ; ils sont seulement écrits dans les journaux. Une fois un service d'envoi configuré, l'application envoie :
 
-- le lien de **première connexion** et celui de **mot de passe oublié** ;
 - les **rappels** : restaurant demain, anniversaire dans 7 jours, départ en voyage… ;
 - les **nouvelles du partenaire** : une tâche qu'il ou elle vous confie, un événement ajouté au calendrier, un nouveau voyage.
 
@@ -304,7 +301,7 @@ En HTTPS, l'application ajoute les en-têtes HSTS. Elle envoie toujours une Cont
 
 ```
 app/                    Routes (App Router)
-  (auth)/               Connexion, première connexion et mot de passe oublié
+  (auth)/               Connexion
   (app)/                Application authentifiée : tableau de bord, carte, tâches, calendrier,
                         souvenirs, films, playlist, voyages, fun, paramètres
   api/                  Fichiers, photos, recherche, géocodage, export, Spotify, santé
@@ -344,10 +341,9 @@ Chaque mutation suit le même chemin :
   - stockées en base ; le cookie contient un jeton aléatoire de 256 bits, et la base n'en garde que le hachage SHA-256 ;
   - cookie `HttpOnly` et `SameSite=Lax`, avec `Secure` et le préfixe `__Host-` en HTTPS ;
   - expiration glissante de 30 jours ;
-  - révocation de toutes les sessions lors d'un changement ou d'une réinitialisation de mot de passe.
-- **Comptes fixes** : seules les adresses de `ACCOUNTS` peuvent se connecter ou recevoir un lien ; il n'existe aucun formulaire d'inscription. Un compte sans mot de passe ne peut pas se connecter tant que son ou sa titulaire n'en a pas choisi un via le lien reçu par e-mail.
-- **Jetons à usage unique** (choix et réinitialisation du mot de passe) : aléatoires, stockés hachés et valables une heure. La demande de lien ne révèle pas si une adresse correspond à un compte.
-- **Rate limiting** en base sur la connexion, les demandes de lien, les e-mails, le géocodage et les imports.
+  - fermeture de toutes les sessions quand `APP_PASSWORD` change.
+- **Comptes fixes et mot de passe commun** : la connexion exige l'une des adresses de `ACCOUNTS` **et** `APP_PASSWORD`, comparé en temps constant. Il n'existe aucun formulaire d'inscription. Le message d'erreur ne dit pas lequel des deux est faux. Choisissez un mot de passe long si l'application est accessible depuis Internet.
+- **Rate limiting** en base : 10 tentatives de connexion par quart d'heure et par adresse IP ; limites aussi sur les e-mails, le géocodage et les imports.
 - **Isolation des espaces** :
   - l'identifiant d'espace n'est **jamais** lu depuis le client ; il est dérivé de la session à chaque requête (`requireWorkspace`, `getApiContext`) ;
   - chaque requête SQL filtre par `workspace_id` ;
@@ -382,18 +378,19 @@ npm run test:e2e
 E2E_BASE_URL=http://localhost:3000 npm run test:e2e
 ```
 
-Les tests e2e utilisent deux comptes fictifs (`alice@exemple.fr`, `bruno@exemple.fr`, modifiables avec `E2E_ACCOUNTS`) : le serveur testé doit avoir les mêmes dans `ACCOUNTS`. Ils écrivent dans la base indiquée par `DATABASE_URL` et vident la table `rate_limits` au démarrage. Ne les lancez pas contre une base de production.
+Les tests e2e utilisent deux comptes fictifs (`alice@exemple.fr`, `bruno@exemple.fr`) et le mot de passe `mot-de-passe-e2e`, modifiables avec `E2E_ACCOUNTS` et `E2E_PASSWORD`. Le serveur testé doit avoir les mêmes valeurs dans `ACCOUNTS` et `APP_PASSWORD`. Ils écrivent dans la base indiquée par `DATABASE_URL` et vident la table `rate_limits` au démarrage. Ne les lancez pas contre une base de production.
 
 Couverture :
 
 - **Unitaires** : générateur SQL (paramétrage, fragments imbriqués), dates et fuseaux, signatures d'URL, redirections sûres, schémas de validation.
 - **Intégration (PostgreSQL réel)** :
   - étanchéité entre deux espaces : lecture, modification et suppression refusées, clés étrangères entre espaces rejetées ;
-  - comptes fixes : création des deux comptes dans le même espace, idempotence, ajout d'un compte, première connexion ;
-  - jetons à usage unique et rate limiting.
+  - comptes fixes : création des deux comptes dans le même espace, idempotence, ajout ou changement d'adresse ;
+  - mot de passe commun : changer `APP_PASSWORD` ferme toutes les sessions ;
+  - rate limiting.
 - **E2E (Chromium, desktop et mobile)** :
-  - parcours complet : première connexion des deux comptes, espace commun, données partagées ;
-  - absence d'inscription, et refus des adresses absentes de `ACCOUNTS` ;
+  - parcours complet : connexion des deux comptes, espace commun, données partagées ;
+  - absence d'inscription, et refus des adresses absentes de `ACCOUNTS`, même avec le bon mot de passe ;
   - redirection des pages protégées ;
   - échec de connexion.
 
@@ -403,10 +400,10 @@ Couverture :
 
 - **Comptes** :
   - deux comptes fixes (`ACCOUNTS`), sans inscription ;
-  - première connexion et mot de passe oublié par lien e-mail ; changement de mot de passe ;
-  - avatar ; les autres sessions sont fermées à chaque changement de mot de passe.
+  - connexion avec son adresse et le mot de passe commun (`APP_PASSWORD`) ;
+  - nom et avatar modifiables.
 - **Espace à deux** : créé automatiquement pour les deux comptes ; nom de l'espace et date de début de la relation modifiables.
-- **E-mails** : rappels, nouvelles du partenaire, e-mail de test.
+- **E-mails (facultatifs)** : rappels, nouvelles du partenaire, e-mail de test.
 - **Tableau de bord** : nombre de jours ensemble, prochain voyage avec compte à rebours, prochain événement et prochaine réservation, tâches à faire, film suggéré pour ce soir, activité suggérée, dernier souvenir.
 - **Carte** :
   - lieux visités ou à découvrir, avec catégories, notes et filtres ;

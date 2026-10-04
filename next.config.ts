@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   reactStrictMode: true,
   // sharp et les binaires natifs restent hors du bundle serveur.
-  serverExternalPackages: ["sharp", "@node-rs/argon2", "archiver", "exifr"],
+  serverExternalPackages: ["sharp", "archiver", "exifr"],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

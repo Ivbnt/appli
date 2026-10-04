@@ -108,12 +108,11 @@ async function deliver(reminder: DueReminder) {
   }
 }
 
-/** Ménage périodique : sessions et jetons expirés, compteurs de rate limiting. */
+/** Ménage périodique : sessions expirées, compteurs de rate limiting. */
 export async function cleanupExpired() {
-  const [sessions, tokens, limits] = await Promise.all([
+  const [sessions, limits] = await Promise.all([
     db.exec(sql`DELETE FROM sessions WHERE expires_at < now()`),
-    db.exec(sql`DELETE FROM auth_tokens WHERE expires_at < now() - interval '7 days' OR used_at < now() - interval '7 days'`),
     db.exec(sql`DELETE FROM rate_limits WHERE reset_at < now() - interval '1 day'`),
   ]);
-  return { sessions, tokens, limits };
+  return { sessions, limits };
 }

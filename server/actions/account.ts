@@ -3,14 +3,13 @@
 import { revalidatePath } from "next/cache";
 import type { ActionResult, FormState } from "@/lib/action-result";
 import { notificationsSchema, themeSchema } from "@/lib/validation/account";
-import { changePasswordSchema, profileSchema } from "@/lib/validation/auth";
+import { profileSchema } from "@/lib/validation/auth";
 import { requireUser } from "../auth/guards";
 import { formatRetryAfter, rateLimit } from "../auth/rate-limit";
 import { db, sql } from "../db";
-import { fieldErrorsFrom, toActionError } from "../safe-action";
+import { fieldErrorsFrom } from "../safe-action";
 import { sendEmail } from "../email";
 import { testEmail } from "../email/templates";
-import * as auth from "../services/auth";
 import { flushFileDeletions, queueFileDeletion } from "../storage";
 
 export async function updateThemeAction(input: { theme: string }): Promise<ActionResult> {
@@ -25,23 +24,9 @@ export async function updateProfileAction(_prev: FormState, formData: FormData):
   const session = await requireUser();
   const parsed = profileSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) return { error: "Vérifiez les champs indiqués.", fieldErrors: fieldErrorsFrom(parsed.error) };
-  await auth.updateProfile(session.user.id, parsed.data.name);
+  await db.exec(sql`UPDATE users SET name = ${parsed.data.name} WHERE id = ${session.user.id}`);
   revalidatePath("/", "layout");
   return { ok: true, message: "Profil mis à jour." };
-}
-
-export async function changePasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await requireUser();
-  const limit = await rateLimit(`change-password:${session.user.id}`, 5, 15 * 60);
-  if (!limit.allowed) return { error: `Trop de tentatives. Réessayez dans ${formatRetryAfter(limit.retryAfterSeconds)}.` };
-  const parsed = changePasswordSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Vérifiez les champs indiqués.", fieldErrors: fieldErrorsFrom(parsed.error) };
-  try {
-    await auth.changePassword(session.user.id, session.id, parsed.data.currentPassword, parsed.data.password);
-  } catch (error) {
-    return toActionError(error);
-  }
-  return { ok: true, message: "Mot de passe modifié. Vos autres appareils ont été déconnectés." };
 }
 
 export async function updateNotificationsAction(input: {
