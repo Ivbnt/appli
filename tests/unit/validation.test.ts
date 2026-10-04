@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseAccounts } from "@/lib/accounts";
-import { loginSchema, resetPasswordSchema } from "@/lib/validation/auth";
+import { loginSchema } from "@/lib/validation/auth";
 import { eventInputSchema } from "@/lib/validation/events";
 import { quizQuestionSchema } from "@/lib/validation/fun";
 import { reservationInputSchema, tripInputSchema } from "@/lib/validation/trips";
@@ -24,11 +24,6 @@ describe("validation", () => {
     const ok = loginSchema.safeParse({ email: " LEA@Exemple.FR ", password: "x" });
     expect(ok.success && ok.data.email).toBe("lea@exemple.fr");
     expect(loginSchema.safeParse({ email: "pas-un-email", password: "x" }).success).toBe(false);
-  });
-
-  it("exige un mot de passe de 10 caractères et vérifie la confirmation", () => {
-    expect(resetPasswordSchema.safeParse({ token: "x".repeat(20), password: "court", confirm: "court" }).success).toBe(false);
-    expect(resetPasswordSchema.safeParse({ token: "x".repeat(20), password: "0123456789", confirm: "autre" }).success).toBe(false);
   });
 
   it("refuse un événement qui se termine avant de commencer", () => {

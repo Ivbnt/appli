@@ -47,23 +47,6 @@ function render(to: string, subject: string, block: Block): EmailMessage {
 
 export const appUrl = (path: string) => new URL(path, env().APP_URL).toString();
 
-export function passwordResetEmail(to: string, name: string, token: string, options: { firstTime?: boolean } = {}): EmailMessage {
-  if (options.firstTime) {
-    return render(to, "Choisissez votre mot de passe", {
-      heading: `Bienvenue, ${name.split(/\s+/)[0]}`,
-      paragraphs: ["Votre compte est prêt. Choisissez votre mot de passe pour accéder à votre espace."],
-      action: { label: "Choisir mon mot de passe", url: appUrl(`/reset-password?token=${encodeURIComponent(token)}`) },
-      footnote: "Ce lien expire dans 1 heure. Si vous n'avez rien demandé, vous pouvez ignorer cet e-mail.",
-    });
-  }
-  return render(to, "Réinitialisation de votre mot de passe", {
-    heading: "Réinitialiser votre mot de passe",
-    paragraphs: [`Bonjour ${name.split(/\s+/)[0]}, une demande de réinitialisation a été faite pour votre compte.`],
-    action: { label: "Choisir un nouveau mot de passe", url: appUrl(`/reset-password?token=${encodeURIComponent(token)}`) },
-    footnote: "Ce lien expire dans 1 heure. Si vous n'avez rien demandé, vous pouvez ignorer cet e-mail : votre mot de passe reste inchangé.",
-  });
-}
-
 export function reminderEmail(to: string, name: string, title: string, when: string, details: string[]): EmailMessage {
   return render(to, `${when} : ${title}`, {
     heading: title,

@@ -30,6 +30,9 @@ export default defineConfig({
         port,
         reuseExistingServer: true,
         timeout: 120_000,
-        env: { ACCOUNTS: process.env.E2E_ACCOUNTS ?? "Alice Martin <alice@exemple.fr>, Bruno Petit <bruno@exemple.fr>" },
+        env: {
+          ACCOUNTS: process.env.E2E_ACCOUNTS ?? "Alice Martin <alice@exemple.fr>, Bruno Petit <bruno@exemple.fr>",
+          APP_PASSWORD: process.env.E2E_PASSWORD ?? "mot-de-passe-e2e",
+        },
       },
 });

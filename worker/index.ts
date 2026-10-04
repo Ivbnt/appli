@@ -24,7 +24,7 @@ async function tick() {
     if (Date.now() - lastCleanup > 60 * MINUTE) {
       lastCleanup = Date.now();
       const cleaned = await cleanupExpired();
-      console.info(`[worker] nettoyage : ${cleaned.sessions} session(s), ${cleaned.tokens} jeton(s), ${cleaned.limits} compteur(s)`);
+      console.info(`[worker] nettoyage : ${cleaned.sessions} session(s), ${cleaned.limits} compteur(s)`);
     }
   } catch (error) {
     console.error("[worker] erreur", error);

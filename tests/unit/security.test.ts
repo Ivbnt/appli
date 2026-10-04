@@ -1,20 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { decrypt, encrypt, generateToken, hashToken, safeEqual } from "@/server/auth/crypto";
-import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { safeRedirectPath } from "@/server/auth/request";
 import { parsePlaylistId } from "@/server/integrations/spotify";
 import { assertSafeKey, keyOwner, storageKeys } from "@/server/storage/keys";
 import { signFileUrl, verifyFileUrl } from "@/server/storage/signing";
-
-describe("mots de passe", () => {
-  it("hache en Argon2id et vérifie", async () => {
-    const hash = await hashPassword("un mot de passe solide");
-    expect(hash).toMatch(/^\$argon2id\$/);
-    expect(await verifyPassword(hash, "un mot de passe solide")).toBe(true);
-    expect(await verifyPassword(hash, "mauvais")).toBe(false);
-    expect(await verifyPassword("hash-invalide", "x")).toBe(false);
-  });
-});
 
 describe("jetons et chiffrement", () => {
   it("génère des jetons uniques et stocke uniquement leur hash", () => {

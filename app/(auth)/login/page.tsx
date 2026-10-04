@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
 import { LoginForm } from "@/components/auth/auth-forms";
@@ -19,14 +18,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <AuthCard
       title="Bon retour"
       description="Connectez-vous à votre espace."
-      footer={
-        <>
-          Première connexion ?{" "}
-          <Link href="/forgot-password?first=1" className="font-medium text-foreground underline-offset-4 hover:underline">
-            Choisir mon mot de passe
-          </Link>
-        </>
-      }
     >
       <LoginForm next={nextPath} />
     </AuthCard>

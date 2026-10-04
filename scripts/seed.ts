@@ -4,13 +4,11 @@
  *
  *   npm run db:seed                         → remplit l'espace s'il est encore vide
  *   npm run db:seed -- --force              → efface d'abord le contenu de l'espace
- *   npm run db:seed -- --password <motdepasse> → définit aussi ce mot de passe pour les deux comptes
  *
  * À réserver à un essai : --force supprime définitivement le contenu existant.
  */
 import sharp from "sharp";
 import { addDays, fromLocalInput, todayISO } from "@/lib/dates";
-import { hashPassword } from "@/server/auth/password";
 import { db, pool, sql } from "@/server/db";
 import { processFileDeletions } from "@/server/storage";
 import { ensureAccounts } from "@/server/services/accounts";
@@ -46,15 +44,8 @@ async function abstractImage(seed: number) {
 
 const CONTENT_TABLES = ["locations", "tasks", "calendar_events", "photos", "movies", "trips", "challenges", "quizzes"];
 
-function argument(name: string) {
-  const index = process.argv.indexOf(name);
-  return index === -1 ? undefined : process.argv[index + 1];
-}
-
 async function main() {
   const force = process.argv.includes("--force");
-  const password = argument("--password");
-  if (password !== undefined && password.length < 10) throw new Error("--password : 10 caractères minimum.");
 
   const { workspaceId } = await ensureAccounts();
   const users = await db.many<{ id: string; name: string; email: string }>(sql`
@@ -62,11 +53,6 @@ async function main() {
     WHERE m.workspace_id = ${workspaceId} ORDER BY m.joined_at`);
   const [lea, hugo = lea] = users;
   const partnerName = hugo!.name.split(/\s+/)[0];
-
-  if (password) {
-    await db.exec(sql`UPDATE users SET password_hash = ${await hashPassword(password)} WHERE id = ANY(${users.map((u) => u.id)}::uuid[])`);
-    console.info("→ Mot de passe défini pour les comptes");
-  }
 
   const counts = await Promise.all(CONTENT_TABLES.map((table) => db.count(sql`SELECT count(*) FROM ${sql.raw(table)} WHERE workspace_id = ${workspaceId}`)));
   if (counts.some((count) => count > 0)) {

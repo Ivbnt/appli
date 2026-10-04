@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useActionState } from "react";
 import { toast } from "sonner";
-import { PasswordInput } from "@/components/auth/password-input";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, FormSuccess } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { changePasswordAction, removeAvatarAction, updateProfileAction } from "@/server/actions/account";
+import { removeAvatarAction, updateProfileAction } from "@/server/actions/account";
 
 export function ProfileForm({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   const router = useRouter();
@@ -74,31 +73,5 @@ export function ProfileForm({ name, avatarUrl }: { name: string; avatarUrl: stri
         </Button>
       </form>
     </div>
-  );
-}
-
-export function PasswordForm() {
-  const [state, action, pending] = useActionState(changePasswordAction, null);
-  const formRef = React.useRef<HTMLFormElement>(null);
-  React.useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
-  }, [state]);
-  return (
-    <form ref={formRef} action={action} className="flex max-w-md flex-col gap-4">
-      <FormSuccess message={state?.ok ? state.message : null} />
-      <FormError message={state?.error && !state.fieldErrors ? state.error : null} />
-      <Field label="Mot de passe actuel" htmlFor="current-password" error={state?.fieldErrors?.currentPassword}>
-        <PasswordInput name="currentPassword" autoComplete="current-password" required />
-      </Field>
-      <Field label="Nouveau mot de passe" htmlFor="new-password" hint="10 caractères minimum." error={state?.fieldErrors?.password}>
-        <PasswordInput name="password" autoComplete="new-password" required minLength={10} />
-      </Field>
-      <Field label="Confirmation" htmlFor="confirm-password" error={state?.fieldErrors?.confirm}>
-        <PasswordInput name="confirm" autoComplete="new-password" required />
-      </Field>
-      <Button type="submit" variant="secondary" loading={pending} className="self-start">
-        Modifier le mot de passe
-      </Button>
-    </form>
   );
 }
