@@ -38,8 +38,11 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/api/f
     // Les clés sont immuables : le cache privé du navigateur peut les conserver.
     "Cache-Control": "private, max-age=3600, immutable",
     "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
   });
+  // Bac à sable pour tout sauf les PDF (le lecteur PDF du navigateur refuse de s'afficher en mode sandbox).
+  if (file.contentType !== "application/pdf") {
+    headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+  }
   if (download) headers.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(download)}`);
   else headers.set("Content-Disposition", "inline");
   return new NextResponse(file.body, { headers });
