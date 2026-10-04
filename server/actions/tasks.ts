@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createTaskSchema, moveTaskSchema, setTaskDoneSchema, taskIdSchema, updateTaskSchema } from "@/lib/validation/tasks";
 import { workspaceAction } from "../safe-action";
 import { evaluateBadges } from "../services/badges";
+import { notifyTaskAssigned } from "../services/notifications";
 import * as tasks from "../services/tasks";
 
 const refresh = () => {
@@ -14,12 +15,15 @@ const refresh = () => {
 
 export const createTaskAction = workspaceAction(createTaskSchema, async (input, ctx) => {
   const task = await tasks.createTask(ctx.workspace.id, ctx.user.id, input);
+  notifyTaskAssigned(ctx, task);
   refresh();
   return task;
 });
 
 export const updateTaskAction = workspaceAction(updateTaskSchema, async ({ id, ...input }, ctx) => {
+  const previous = await tasks.getAssignee(ctx.workspace.id, id);
   const task = await tasks.updateTask(ctx.workspace.id, id, input);
+  notifyTaskAssigned(ctx, task, previous);
   if (task.status === "done") await evaluateBadges(ctx.workspace.id);
   refresh();
   return task;

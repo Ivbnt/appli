@@ -1,13 +1,6 @@
 import { z } from "zod";
 import { emailSchema, nameSchema, passwordSchema } from "./common";
 
-export const registerSchema = z.object({
-  name: nameSchema,
-  email: emailSchema,
-  password: passwordSchema,
-  invite: z.string().max(200).optional(),
-});
-
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Mot de passe requis.").max(128),
@@ -33,13 +26,3 @@ export const changePasswordSchema = z
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Les mots de passe ne correspondent pas." });
 
 export const profileSchema = z.object({ name: nameSchema });
-
-export const changeEmailSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, "Mot de passe requis."),
-});
-
-export const deleteAccountSchema = z.object({
-  password: z.string().min(1, "Mot de passe requis."),
-  confirmation: z.literal("SUPPRIMER", { error: "Tapez SUPPRIMER pour confirmer." }),
-});

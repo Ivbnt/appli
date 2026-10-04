@@ -88,7 +88,7 @@ export function WhoOfUs({ questions: initial }: { questions: QuestionView[] }) {
                 </button>
               ))}
             </div>
-            {members.length < 2 && <p className="mt-4 text-xs text-muted">Invitez votre partenaire pour comparer vos réponses.</p>}
+            {members.length < 2 && <p className="mt-4 text-xs text-muted">Les réponses se comparent dès que votre partenaire a joué.</p>}
           </motion.section>
         ) : questions.length > 0 ? (
           <motion.div key="done" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl border border-border bg-surface p-8 text-center">

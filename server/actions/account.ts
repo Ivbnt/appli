@@ -1,20 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import type { ActionResult, FormState } from "@/lib/action-result";
 import { notificationsSchema, themeSchema } from "@/lib/validation/account";
-import { changeEmailSchema, changePasswordSchema, deleteAccountSchema, profileSchema } from "@/lib/validation/auth";
+import { changePasswordSchema, profileSchema } from "@/lib/validation/auth";
 import { requireUser } from "../auth/guards";
 import { formatRetryAfter, rateLimit } from "../auth/rate-limit";
-import { clearSessionCookie } from "../auth/session";
 import { db, sql } from "../db";
 import { fieldErrorsFrom, toActionError } from "../safe-action";
+import { sendEmail } from "../email";
+import { testEmail } from "../email/templates";
 import * as auth from "../services/auth";
 import { flushFileDeletions, queueFileDeletion } from "../storage";
 
 export async function updateThemeAction(input: { theme: string }): Promise<ActionResult> {
-  const session = await requireUser({ allowUnverified: true });
+  const session = await requireUser();
   const parsed = themeSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Thème invalide." };
   await db.exec(sql`UPDATE users SET theme_preference = ${parsed.data.theme} WHERE id = ${session.user.id}`);
@@ -44,21 +44,6 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
   return { ok: true, message: "Mot de passe modifié. Vos autres appareils ont été déconnectés." };
 }
 
-export async function changeEmailAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await requireUser();
-  const limit = await rateLimit(`change-email:${session.user.id}`, 5, 60 * 60);
-  if (!limit.allowed) return { error: `Trop de tentatives. Réessayez dans ${formatRetryAfter(limit.retryAfterSeconds)}.` };
-  const parsed = changeEmailSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Vérifiez les champs indiqués.", fieldErrors: fieldErrorsFrom(parsed.error) };
-  if (parsed.data.email === session.user.email) return { error: "C'est déjà votre adresse actuelle." };
-  try {
-    await auth.changeEmail(session.user.id, parsed.data.email, parsed.data.password);
-  } catch (error) {
-    return toActionError(error);
-  }
-  redirect("/verify-email");
-}
-
 export async function updateNotificationsAction(input: {
   emailNotifications: boolean;
   reminderEmails: boolean;
@@ -76,6 +61,19 @@ export async function updateNotificationsAction(input: {
   return { ok: true, data: undefined };
 }
 
+export async function sendTestEmailAction(): Promise<ActionResult<{ delivered: boolean; to: string }>> {
+  const session = await requireUser();
+  const limit = await rateLimit(`test-email:${session.user.id}`, 5, 60 * 60);
+  if (!limit.allowed) return { ok: false, error: `Patientez ${formatRetryAfter(limit.retryAfterSeconds)} avant un nouvel essai.` };
+  try {
+    const delivery = await sendEmail(testEmail(session.user.email, session.user.name.split(/\s+/)[0] ?? session.user.name));
+    return { ok: true, data: { delivered: delivery.delivered, to: session.user.email } };
+  } catch (error) {
+    console.error("[email] e-mail de test non envoyé", error);
+    return { ok: false, error: `L'envoi a échoué : ${error instanceof Error ? error.message : "erreur inconnue"}. Vérifiez la configuration (EMAIL_PROVIDER, SMTP_URL…).` };
+  }
+}
+
 export async function removeAvatarAction(): Promise<ActionResult> {
   const session = await requireUser();
   const row = await db.maybe<{ avatarKey: string | null }>(sql`
@@ -85,19 +83,4 @@ export async function removeAvatarAction(): Promise<ActionResult> {
   flushFileDeletions();
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
-}
-
-export async function deleteAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await requireUser({ allowUnverified: true });
-  const limit = await rateLimit(`delete-account:${session.user.id}`, 5, 15 * 60);
-  if (!limit.allowed) return { error: `Trop de tentatives. Réessayez dans ${formatRetryAfter(limit.retryAfterSeconds)}.` };
-  const parsed = deleteAccountSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Vérifiez les champs indiqués.", fieldErrors: fieldErrorsFrom(parsed.error) };
-  try {
-    await auth.deleteAccount(session.user.id, parsed.data.password);
-  } catch (error) {
-    return toActionError(error);
-  }
-  await clearSessionCookie();
-  redirect("/login");
 }

@@ -47,30 +47,20 @@ function render(to: string, subject: string, block: Block): EmailMessage {
 
 export const appUrl = (path: string) => new URL(path, env().APP_URL).toString();
 
-export function verificationEmail(to: string, name: string, token: string): EmailMessage {
-  return render(to, "Confirmez votre adresse e-mail", {
-    heading: `Bienvenue, ${name}`,
-    paragraphs: ["Confirmez votre adresse e-mail pour accéder à votre espace."],
-    action: { label: "Confirmer mon adresse", url: appUrl(`/verify-email/confirm?token=${encodeURIComponent(token)}`) },
-    footnote: "Ce lien expire dans 24 heures. Si vous n'êtes pas à l'origine de cette inscription, ignorez cet e-mail.",
-  });
-}
-
-export function passwordResetEmail(to: string, name: string, token: string): EmailMessage {
+export function passwordResetEmail(to: string, name: string, token: string, options: { firstTime?: boolean } = {}): EmailMessage {
+  if (options.firstTime) {
+    return render(to, "Choisissez votre mot de passe", {
+      heading: `Bienvenue, ${name.split(/\s+/)[0]}`,
+      paragraphs: ["Votre compte est prêt. Choisissez votre mot de passe pour accéder à votre espace."],
+      action: { label: "Choisir mon mot de passe", url: appUrl(`/reset-password?token=${encodeURIComponent(token)}`) },
+      footnote: "Ce lien expire dans 1 heure. Si vous n'avez rien demandé, vous pouvez ignorer cet e-mail.",
+    });
+  }
   return render(to, "Réinitialisation de votre mot de passe", {
     heading: "Réinitialiser votre mot de passe",
-    paragraphs: [`Bonjour ${name}, une demande de réinitialisation a été faite pour votre compte.`],
+    paragraphs: [`Bonjour ${name.split(/\s+/)[0]}, une demande de réinitialisation a été faite pour votre compte.`],
     action: { label: "Choisir un nouveau mot de passe", url: appUrl(`/reset-password?token=${encodeURIComponent(token)}`) },
     footnote: "Ce lien expire dans 1 heure. Si vous n'avez rien demandé, vous pouvez ignorer cet e-mail : votre mot de passe reste inchangé.",
-  });
-}
-
-export function invitationEmail(to: string, inviterName: string, workspaceName: string, token: string): EmailMessage {
-  return render(to, `${inviterName} vous invite à rejoindre « ${workspaceName} »`, {
-    heading: "Une invitation vous attend",
-    paragraphs: [`${inviterName} vous invite à rejoindre l'espace privé « ${workspaceName} ».`],
-    action: { label: "Rejoindre l'espace", url: appUrl(`/invite/${encodeURIComponent(token)}`) },
-    footnote: "Cette invitation expire dans 7 jours.",
   });
 }
 
@@ -83,10 +73,24 @@ export function reminderEmail(to: string, name: string, title: string, when: str
   });
 }
 
-export function partnerJoinedEmail(to: string, name: string, partnerName: string, workspaceName: string): EmailMessage {
-  return render(to, `${partnerName} a rejoint « ${workspaceName} »`, {
-    heading: "Votre espace est complet",
-    paragraphs: [`Bonjour ${name}, ${partnerName} vient de rejoindre « ${workspaceName} ». Tout ce que vous ajoutez est désormais partagé.`],
-    action: { label: "Ouvrir l'espace", url: appUrl("/") },
+/** Nouvelle du partenaire (tâche assignée, événement ajouté…). */
+export function partnerActivityEmail(
+  to: string,
+  name: string,
+  input: { subject: string; heading: string; message: string; details?: string[]; path: string; label: string },
+): EmailMessage {
+  return render(to, input.subject, {
+    heading: input.heading,
+    paragraphs: [`Bonjour ${name}, ${input.message}`, ...(input.details ?? [])],
+    action: { label: input.label, url: appUrl(input.path) },
+    footnote: "Vous pouvez désactiver ces e-mails dans Paramètres → Notifications.",
+  });
+}
+
+export function testEmail(to: string, name: string): EmailMessage {
+  return render(to, "E-mail de test", {
+    heading: "Les e-mails fonctionnent",
+    paragraphs: [`Bonjour ${name}, si vous lisez ceci, l'envoi d'e-mails est correctement configuré : vous recevrez vos rappels et les nouvelles de l'espace.`],
+    action: { label: "Ouvrir l'application", url: appUrl("/") },
   });
 }

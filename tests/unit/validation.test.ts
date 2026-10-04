@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { registerSchema, resetPasswordSchema } from "@/lib/validation/auth";
+import { parseAccounts } from "@/lib/accounts";
+import { loginSchema, resetPasswordSchema } from "@/lib/validation/auth";
 import { eventInputSchema } from "@/lib/validation/events";
 import { quizQuestionSchema } from "@/lib/validation/fun";
 import { reservationInputSchema, tripInputSchema } from "@/lib/validation/trips";
@@ -7,14 +8,26 @@ import { reminderSummary, whenLabel } from "@/server/services/reminders";
 import { fromLocalInput } from "@/lib/dates";
 
 describe("validation", () => {
-  it("normalise l'e-mail et exige un mot de passe de 10 caractères", () => {
-    const ok = registerSchema.safeParse({ name: " Léa ", email: " LEA@Exemple.FR ", password: "0123456789" });
-    expect(ok.success && ok.data).toMatchObject({ name: "Léa", email: "lea@exemple.fr" });
-    expect(registerSchema.safeParse({ name: "Léa", email: "lea@exemple.fr", password: "court" }).success).toBe(false);
-    expect(registerSchema.safeParse({ name: "", email: "pas-un-email", password: "0123456789" }).success).toBe(false);
+  it("lit la liste des comptes autorisés (ACCOUNTS)", () => {
+    expect(parseAccounts("Léa Martin <Lea.Martin@Exemple.FR>, Hugo Petit <hugo@exemple.fr>")).toEqual([
+      { name: "Léa Martin", email: "lea.martin@exemple.fr" },
+      { name: "Hugo Petit", email: "hugo@exemple.fr" },
+    ]);
+    expect(parseAccounts("Léa <lea@exemple.fr>;\nHugo <hugo@exemple.fr>")).toHaveLength(2);
+    expect(() => parseAccounts("")).toThrow("aucun compte");
+    expect(() => parseAccounts("lea@exemple.fr")).toThrow("mal écrit");
+    expect(() => parseAccounts("A <a@x.fr>, B <b@x.fr>, C <c@x.fr>")).toThrow("2 au maximum");
+    expect(() => parseAccounts("A <a@x.fr>, B <A@x.fr>")).toThrow("deux fois");
   });
 
-  it("vérifie la confirmation du mot de passe", () => {
+  it("normalise l'e-mail de connexion", () => {
+    const ok = loginSchema.safeParse({ email: " LEA@Exemple.FR ", password: "x" });
+    expect(ok.success && ok.data.email).toBe("lea@exemple.fr");
+    expect(loginSchema.safeParse({ email: "pas-un-email", password: "x" }).success).toBe(false);
+  });
+
+  it("exige un mot de passe de 10 caractères et vérifie la confirmation", () => {
+    expect(resetPasswordSchema.safeParse({ token: "x".repeat(20), password: "court", confirm: "court" }).success).toBe(false);
     expect(resetPasswordSchema.safeParse({ token: "x".repeat(20), password: "0123456789", confirm: "autre" }).success).toBe(false);
   });
 

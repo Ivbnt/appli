@@ -1,92 +1,61 @@
 import { expect, test } from "@playwright/test";
-import { newUserPage, query, register, resetRateLimits, uniqueEmail, verifyEmail } from "./helpers";
+import { ALICE, BRUNO, firstLogin, login, newUserPage, query, resetRateLimits } from "./helpers";
 
 test.beforeAll(resetRateLimits);
 
-test("parcours complet : inscription, espace, invitation, données partagées et étanchéité", async ({ browser }) => {
-  // ── Alice crée son compte : la vérification de l'e-mail est obligatoire.
+test("deux comptes fixes : première connexion, espace commun et données partagées", async ({ browser }) => {
+  // ── Alice choisit son mot de passe et arrive directement dans l'espace commun.
   const alice = await newUserPage(browser);
-  const aliceEmail = uniqueEmail("Alice");
-  await register(alice, "Alice", aliceEmail);
-  await expect(alice).toHaveURL(/verify-email/);
-  await expect(alice.getByRole("heading", { name: "Vérifiez votre adresse" })).toBeVisible();
-  await alice.goto("/");
-  await expect(alice).toHaveURL(/verify-email/);
-
-  await verifyEmail(aliceEmail);
-  await alice.goto("/");
-  await expect(alice).toHaveURL(/onboarding/);
-  await alice.getByLabel("Nom de l'espace").fill("Alice & Bruno");
-  await alice.getByRole("button", { name: "Créer notre espace" }).click();
-  await expect(alice).toHaveURL(/\/$/);
+  await firstLogin(alice, ALICE);
   await expect(alice.getByRole("heading", { level: 1 })).toContainText("Alice");
 
-  // ── Alice crée une tâche et un lien d'invitation.
+  // ── Elle crée une tâche.
+  const title = `Réserver le restaurant ${Date.now()}`;
   await alice.goto("/tasks");
-  await alice.getByLabel("Ajouter rapidement une tâche").fill("Réserver le restaurant");
+  await alice.getByLabel("Ajouter rapidement une tâche").fill(title);
   await alice.keyboard.press("Enter");
-  await expect(alice.getByText("Réserver le restaurant")).toBeVisible();
+  await expect(alice.getByText(title)).toBeVisible();
 
-  await alice.goto("/settings/couple");
-  await alice.getByRole("button", { name: "Créer un lien d'invitation" }).click();
-  const link = await alice.getByLabel("Lien d'invitation").inputValue();
-  expect(link).toMatch(/\/invite\/[A-Za-z0-9_-]{30,}$/);
-
-  // ── Bruno rejoint l'espace avec le lien.
+  // ── Bruno choisit le sien, puis se reconnecte avec : il voit la même tâche.
   const bruno = await newUserPage(browser);
-  const brunoEmail = uniqueEmail("Bruno");
-  await bruno.goto(new URL(link).pathname);
-  await expect(bruno.getByRole("heading", { name: /Rejoindre « Alice & Bruno »/ })).toBeVisible();
-  await bruno.getByRole("link", { name: "Créer mon compte" }).click();
-  await bruno.waitForURL(/\/register\?invite=/);
-  await register(bruno, "Bruno", brunoEmail, bruno.url().replace(/^https?:\/\/[^/]+/, ""));
-  await verifyEmail(brunoEmail);
-  await bruno.goto(new URL(link).pathname);
-  await bruno.getByRole("button", { name: "Rejoindre l'espace" }).click();
+  await firstLogin(bruno, BRUNO);
+  await bruno.context().clearCookies();
+  await login(bruno, BRUNO);
   await expect(bruno).toHaveURL(/\/$/);
-
-  // ── Les données sont partagées.
   await bruno.goto("/tasks");
-  await expect(bruno.getByText("Réserver le restaurant")).toBeVisible();
+  await expect(bruno.getByText(title)).toBeVisible();
 
-  // ── Chloé, d'un autre espace, ne voit rien et ne peut rien ouvrir.
-  const chloe = await newUserPage(browser);
-  const chloeEmail = uniqueEmail("Chloe");
-  await register(chloe, "Chloé", chloeEmail);
-  await verifyEmail(chloeEmail);
-  await chloe.goto("/onboarding");
-  await chloe.getByLabel("Nom de l'espace").fill("Chloé & Dan");
-  await chloe.getByRole("button", { name: "Créer notre espace" }).click();
-  await expect(chloe).toHaveURL(/\/$/);
-  await chloe.goto("/tasks");
-  await expect(chloe.getByText("Réserver le restaurant")).toHaveCount(0);
+  // ── Les deux comptes sont dans le même espace, et nulle part ailleurs.
+  const rows = await query<{ workspaces: string; members: string }>(
+    `SELECT count(DISTINCT m.workspace_id) AS workspaces, count(*) AS members
+     FROM workspace_members m JOIN users u ON u.id = m.user_id WHERE u.email = ANY($1)`,
+    [[ALICE, BRUNO]],
+  );
+  expect(rows[0]).toEqual({ workspaces: "1", members: "2" });
 
-  // Le lien d'invitation déjà utilisé ne fonctionne plus.
-  await chloe.goto(new URL(link).pathname);
-  await expect(chloe.getByText("Invitation indisponible")).toBeVisible();
-
-  // Une photo de l'espace d'Alice reste inaccessible à Chloé, même avec une URL signée valide.
-  await alice.goto("/memories");
-  const [upload] = await Promise.all([
-    alice.waitForResponse((r) => r.url().endsWith("/api/photos") && r.request().method() === "POST"),
-    alice.locator('input[type="file"]').setInputFiles({
-      name: "souvenir.png",
-      mimeType: "image/png",
-      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"),
-    }),
-  ]);
-  const { photo } = (await upload.json()) as { photo: { thumbUrl: string; id: string } };
-  expect((await alice.request.get(photo.thumbUrl)).status()).toBe(200);
-  expect((await chloe.request.get(photo.thumbUrl)).status()).toBe(403);
-  expect((await chloe.request.get(`/api/photos/${photo.id}/download`, { maxRedirects: 0 })).status()).toBe(404);
-
-  // Sans session : refus.
+  // ── Sans session, les fichiers et l'API sont refusés.
   const anonymous = await browser.newContext();
-  expect((await anonymous.request.get(photo.thumbUrl)).status()).toBe(401);
   expect((await anonymous.request.get("/api/search?q=restaurant")).status()).toBe(401);
+});
 
-  const [{ count }] = await query<{ count: string }>("SELECT count(*) FROM workspace_members m JOIN users u ON u.id = m.user_id WHERE u.email = ANY($1)", [[aliceEmail, brunoEmail]]);
-  expect(Number(count)).toBe(2);
+test("il n'y a pas d'inscription", async ({ page }) => {
+  for (const path of ["/register", "/onboarding", "/verify-email"]) {
+    const response = await page.goto(path);
+    // Les pages n'existent plus : redirection vers la connexion (visiteur) ou 404.
+    expect(page.url().includes("/login") || response?.status() === 404).toBe(true);
+  }
+  await page.goto("/login");
+  await expect(page.getByText("Créer un compte")).toHaveCount(0);
+});
+
+test("une adresse qui n'est pas dans ACCOUNTS ne peut ni se connecter ni recevoir de lien", async ({ page }) => {
+  await page.goto("/forgot-password?first=1");
+  await page.getByLabel("Adresse e-mail").fill("inconnu@exemple.fr");
+  await page.getByRole("button", { name: "Recevoir le lien" }).click();
+  // Même réponse que pour un vrai compte : on ne révèle rien…
+  await expect(page.getByText("un e-mail vient de lui être envoyé")).toBeVisible();
+  // … mais aucun compte n'a été créé.
+  expect(await query("SELECT 1 FROM users WHERE email = 'inconnu@exemple.fr'")).toHaveLength(0);
 });
 
 test("les pages protégées redirigent vers la connexion", async ({ page }) => {
@@ -97,9 +66,6 @@ test("les pages protégées redirigent vers la connexion", async ({ page }) => {
 });
 
 test("connexion refusée avec un mauvais mot de passe @mobile", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("Adresse e-mail").fill("inconnu@exemple.fr");
-  await page.getByLabel("Mot de passe", { exact: true }).fill("mauvais-mot-de-passe");
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await login(page, ALICE, "mauvais-mot-de-passe");
   await expect(page.getByRole("alert").filter({ hasText: "incorrect" })).toContainText("incorrect");
 });
