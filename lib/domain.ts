@@ -87,14 +87,7 @@ export const TRIP_SECTIONS: { key: string; label: string; types: ReservationType
 export const ACTIVITY_POOLS = labels({ tonight: "Ce soir, on fait…", wheel: "Roue des activités" });
 export type ActivityPool = keyof typeof ACTIVITY_POOLS;
 
-export const CHALLENGE_DIFFICULTIES = labels({ easy: "Facile", medium: "Moyen", hard: "Difficile" });
-export type ChallengeDifficulty = keyof typeof CHALLENGE_DIFFICULTIES;
-export const CHALLENGE_DIFFICULTY_VALUES = keysOf(CHALLENGE_DIFFICULTIES);
 
-export const CHALLENGE_STATUSES = labels({ todo: "À relever", in_progress: "En cours", done: "Relevé" });
-export type ChallengeStatus = keyof typeof CHALLENGE_STATUSES;
-export const CHALLENGE_STATUS_VALUES = keysOf(CHALLENGE_STATUSES);
-
-export type QuizKind = "couple_quiz" | "who_of_us";
+export type QuizKind = "who_of_us";
 export type ThemePreference = "light" | "dark" | "system";
 export type MemberRole = "owner" | "member";

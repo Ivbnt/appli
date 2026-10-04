@@ -10,7 +10,7 @@ import { storage } from "../storage";
  */
 export async function exportWorkspace(workspaceId: string, userId: string): Promise<ReadableStream<Uint8Array>> {
   const q = <T>(query: ReturnType<typeof sql>) => db.many<T>(query);
-  const [account, workspace, members, places, categories, tasks, events, movies, reviews, trips, reservations, albums, photos, milestones, playlists, activities, challenges, quizzes, questions, answers, badges] =
+  const [account, workspace, members, places, categories, tasks, events, movies, reviews, trips, reservations, albums, photos, milestones, playlists, activities, quizzes, questions, answers, badges] =
     await Promise.all([
       db.one(sql`SELECT id, name, email, email_verified_at, theme_preference, email_notifications, reminder_emails, default_reminder_minutes, created_at FROM users WHERE id = ${userId}`),
       db.one(sql`SELECT id, name, together_since, created_at FROM workspaces WHERE id = ${workspaceId}`),
@@ -30,7 +30,6 @@ export async function exportWorkspace(workspaceId: string, userId: string): Prom
       q(sql`SELECT * FROM milestones WHERE workspace_id = ${workspaceId}`),
       q(sql`SELECT spotify_id, url, name, description, tracks, last_synced_at FROM playlists WHERE workspace_id = ${workspaceId}`),
       q(sql`SELECT label, pool, done_count, last_done_at FROM activities WHERE workspace_id = ${workspaceId}`),
-      q(sql`SELECT * FROM challenges WHERE workspace_id = ${workspaceId}`),
       q(sql`SELECT * FROM quizzes WHERE workspace_id = ${workspaceId}`),
       q(sql`SELECT q.* FROM quiz_questions q JOIN quizzes z ON z.id = q.quiz_id WHERE z.workspace_id = ${workspaceId}`),
       q(sql`SELECT a.* FROM quiz_answers a JOIN quiz_questions q ON q.id = a.question_id JOIN quizzes z ON z.id = q.quiz_id WHERE z.workspace_id = ${workspaceId}`),
@@ -63,7 +62,6 @@ export async function exportWorkspace(workspaceId: string, userId: string): Prom
     milestones,
     playlists,
     activities,
-    challenges,
     quizzes,
     quizQuestions: questions,
     quizAnswers: answers,
