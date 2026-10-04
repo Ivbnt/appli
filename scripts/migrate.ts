@@ -19,8 +19,7 @@ async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL est requis");
 
-  const client = new pg.Client({ connectionString });
-  await connectWithRetry(client);
+  const client = await connectWithRetry(connectionString);
 
   try {
     await client.query("SELECT pg_advisory_lock($1)", [LOCK_ID]);
@@ -74,18 +73,31 @@ async function main() {
   }
 }
 
-/** Au démarrage de Docker, PostgreSQL peut mettre quelques secondes à accepter les connexions. */
-async function connectWithRetry(client: pg.Client, attempts = 30) {
+/**
+ * Au démarrage de Docker, PostgreSQL peut mettre quelques secondes à accepter les connexions.
+ * Un client `pg` ne peut pas être réutilisé après un échec : on en crée un nouveau à chaque essai.
+ */
+async function connectWithRetry(connectionString: string, attempts = 30): Promise<pg.Client> {
   for (let attempt = 1; ; attempt++) {
+    const client = new pg.Client({ connectionString });
     try {
       await client.connect();
-      return;
+      return client;
     } catch (error) {
+      await client.end().catch(() => undefined);
+      // Mot de passe refusé : inutile de réessayer.
+      if ((error as { code?: string }).code === "28P01") throw new Error(PASSWORD_HINT);
       if (attempt >= attempts) throw error;
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 }
+
+const PASSWORD_HINT = `PostgreSQL refuse le mot de passe de l'utilisateur de la base.
+  Le mot de passe n'est appliqué qu'à la toute première création de la base : si POSTGRES_PASSWORD
+  a changé depuis (par exemple après avoir créé le fichier .env), la base garde l'ancien.
+  • Installation neuve, sans données à garder : docker compose down -v, puis docker compose up --build
+  • Sinon : remettez dans .env le POSTGRES_PASSWORD utilisé lors du premier lancement.`;
 
 main().catch((error) => {
   console.error("Migration impossible :", error instanceof Error ? error.message : error);

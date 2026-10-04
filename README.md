@@ -65,6 +65,13 @@ docker compose exec app node dist/seed.mjs
 
 Le seed ajoute des données fictives à l'espace des deux comptes : lieux, tâches, événements, photos, films, voyage, quiz et défis. Il ne fait rien si l'espace contient déjà des données. Avec `--force`, il **efface d'abord tout le contenu** de l'espace : à réserver à un essai. `--password <motdepasse>` définit en plus ce mot de passe pour les deux comptes, ce qui évite le passage par l'e-mail en local.
 
+### Dépannage
+
+**`service "migrate" didn't complete successfully`, avec `password authentication failed for user "appli"` dans `docker compose logs db`** : PostgreSQL n'applique `POSTGRES_PASSWORD` qu'à la création de la base. Si le mot de passe a changé depuis le premier lancement, par exemple après avoir créé `.env`, la base garde l'ancien.
+
+- Installation neuve, sans données à garder : `docker compose down -v`, puis `docker compose up --build`.
+- Sinon : remettez dans `.env` le mot de passe du premier lancement (`appli` si `.env` n'existait pas encore).
+
 ### Commandes utiles
 
 | Commande | Effet |
