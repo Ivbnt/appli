@@ -39,7 +39,7 @@ sql.join = (fragments: Sql[], separator: Sql | string = ", "): Sql => {
 };
 
 /** Combine des conditions avec AND (renvoie TRUE si la liste est vide). */
-sql.and = (conditions: (Sql | false | null | undefined)[]): Sql => {
+sql.and = (conditions: (Sql | false | null | undefined | "")[]): Sql => {
   const parts = conditions.filter((c): c is Sql => c instanceof Sql);
   return parts.length === 0 ? sql`TRUE` : sql.join(parts.map((p) => sql`(${p})`), " AND ");
 };

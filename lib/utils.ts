@@ -30,3 +30,8 @@ export function formatDuration(minutes: number): string {
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${String(m).padStart(2, "0")}`;
 }
+
+/** Majuscule initiale uniquement (la classe CSS `capitalize` met une majuscule à chaque mot). */
+export function ucfirst(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}

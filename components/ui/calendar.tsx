@@ -17,7 +17,7 @@ export function Calendar({ className, classNames, ...props }: DayPickerProps) {
         months: "relative flex flex-col gap-4",
         month: "flex flex-col gap-3",
         month_caption: "flex h-8 items-center px-1",
-        caption_label: "text-sm font-semibold capitalize",
+        caption_label: "block text-sm font-semibold first-letter:uppercase",
         nav: "absolute top-0 right-0 flex items-center gap-1",
         button_previous:
           "flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-40",

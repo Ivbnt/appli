@@ -10,7 +10,7 @@ import { TZDate } from "@date-fns/tz";
  *   « AAAA-MM-JJ » : elles n'ont pas de fuseau et ne se décalent jamais d'un jour.
  */
 
-let timezone = "Europe/Paris";
+let timezone = (typeof process !== "undefined" && process.env?.APP_TIMEZONE) || "Europe/Paris";
 
 export function configureTimezone(tz: string) {
   timezone = tz;

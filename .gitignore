@@ -32,3 +32,4 @@ npm-debug.log*
 .vercel
 .agents
 .claude/settings.local.json
+/public/vendor
